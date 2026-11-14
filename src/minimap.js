@@ -1,5 +1,6 @@
 import { save, player, runtime } from './state.js';
-import { getMapImage, mapToImage, MAP_PX_PER_M, getObjectiveTarget, trackObjective, drawPlayerArrow } from './map-image.js';
+import { getMapImage, mapToImage, MAP_PX_PER_M, getObjectiveTarget, trackObjective, drawPlayerArrow, drawMissionIcon } from './map-image.js';
+import { getMapMarkers } from './current-target.js';
 import { initFullMap, openFullMap } from './full-map.js';
 
 const VIEW_METERS = 140;
@@ -11,6 +12,10 @@ let cssScale = 1;
 
 let canvas = null;
 let ctx = null;
+
+function setDataset(el, key, value) {
+  if (el.dataset[key] !== value) el.dataset[key] = value;
+}
 
 function extractPos(item) {
   if (!item) return null;
@@ -106,21 +111,28 @@ function edgePoint(angle, w, h, inset) {
 function drawObjective(pulse) {
   const target = getObjectiveTarget();
   if (!target) {
-    canvas.dataset.objInside = '';
+    setDataset(canvas, 'objInside', '');
+    setDataset(canvas, 'objDist', '');
+    setDataset(canvas, 'objX', '');
+    setDataset(canvas, 'objY', '');
+    setDataset(canvas, 'edgeX', '');
+    setDataset(canvas, 'edgeY', '');
     return;
   }
   const [x, y] = worldToMini(target.x, target.z);
   const w = canvas.width;
   const h = canvas.height;
   const dist = Math.round(Math.hypot(target.x - player.pos.x, target.z - player.pos.z));
-  canvas.dataset.objX = x.toFixed(1);
-  canvas.dataset.objY = y.toFixed(1);
-  canvas.dataset.objDist = String(dist);
+  setDataset(canvas, 'objX', x.toFixed(1));
+  setDataset(canvas, 'objY', y.toFixed(1));
+  setDataset(canvas, 'objDist', String(dist));
 
   const ringBase = Math.max(8 * cssScale, 9.5 * unit);
   const inset = ringBase + 3 * cssScale;
   if (x > inset && x < w - inset && y > inset && y < h - inset) {
-    canvas.dataset.objInside = '1';
+    setDataset(canvas, 'objInside', '1');
+    setDataset(canvas, 'edgeX', '');
+    setDataset(canvas, 'edgeY', '');
     drawDashedRoute(w / 2, h / 2, x, y);
     const pulseR = ringBase + pulse * 3.5 * cssScale;
     ctx.save();
@@ -146,12 +158,12 @@ function drawObjective(pulse) {
     return;
   }
 
-  canvas.dataset.objInside = '0';
+  setDataset(canvas, 'objInside', '0');
   const angle = Math.atan2(y - h / 2, x - w / 2);
   const edgeInset = 11 * cssScale;
   const [ex, ey] = edgePoint(angle, w, h, edgeInset);
-  canvas.dataset.edgeX = ex.toFixed(1);
-  canvas.dataset.edgeY = ey.toFixed(1);
+  setDataset(canvas, 'edgeX', ex.toFixed(1));
+  setDataset(canvas, 'edgeY', ey.toFixed(1));
   drawDashedRoute(w / 2, h / 2, ex, ey);
 
   ctx.save();
@@ -191,6 +203,20 @@ function drawObjective(pulse) {
   ctx.fillStyle = '#ffe875';
   ctx.fillText(label, lx, ly + 0.5 * cssScale);
   ctx.restore();
+}
+
+function drawMissionMarkers() {
+  const w = canvas.width;
+  const h = canvas.height;
+  const s = Math.max(0.85 * cssScale, 1 * unit);
+  let drawn = 0;
+  for (const m of getMapMarkers()) {
+    const [x, y] = worldToMini(m.x, m.z);
+    if (x < 3 || y < 3 || x > w - 3 || y > h - 3) continue;
+    drawMissionIcon(ctx, x, y, s);
+    drawn += 1;
+  }
+  setDataset(canvas, 'missionMarkers', String(drawn));
 }
 
 function drawEntities(entitiesApi, pulse) {
@@ -243,6 +269,7 @@ export function drawMinimap(entitiesApi) {
   ctx.fillRect(0, 0, w, h);
   ctx.drawImage(getMapImage(), ix - src / 2, iy - src / 2, src, src, 0, 0, w, h);
   drawEntities(entitiesApi, pulse);
+  drawMissionMarkers();
   drawObjective(pulse);
   if (runtime.abilityActiveLeft > 0) dot(player.pos.x, player.pos.z, 12 + pulse * 6, null, 'rgba(126, 227, 255, 0.55)');
   drawPlayerArrow(ctx, w / 2, h / 2, player.yaw, Math.max(5.5 * cssScale, 6.5 * unit));

@@ -1,7 +1,8 @@
 import * as THREE from 'three';
-import { save, player, on } from './state.js';
-import { LANDMARKS, MISSIONS } from './config.js';
+import { player, on } from './state.js';
+import { LANDMARKS } from './config.js';
 import { isAnyModalOpen } from './modal-manager.js';
+import { getCurrentTarget } from './current-target.js';
 
 const LABEL_DEFS = [
   { key: 'shop', name: 'אפסנאות', y: 2.2 },
@@ -119,14 +120,6 @@ export function refreshHudRects() {
       lb.measured = true;
     }
   }
-}
-
-function resolveFallbackTarget() {
-  const m = MISSIONS[save.activeMissionId] || MISSIONS.base;
-  if (m && m.markerPos) return toPoint(m.markerPos);
-  const pts = m && m.objectives && m.objectives[0] && m.objectives[0].points;
-  if (pts && pts.length) return toPoint(pts[0]);
-  return toPoint(MISSIONS.base.markerPos);
 }
 
 function projectToScreen(point, height) {
@@ -344,9 +337,6 @@ export function initWaypointCompass(sceneRef, cameraRef) {
     }
   }
 
-  on('mission:objective_updated', (payload) => {
-    if (payload && payload.targetWorldPos) setWaypointTarget(payload.targetWorldPos);
-  });
   on('mission:completed', () => {
     target = null;
   });
@@ -364,14 +354,17 @@ export function initWaypointCompass(sceneRef, cameraRef) {
 export function updateWaypointCompass(tSec) {
   if (!group || !camera) return;
   camera.updateMatrixWorld(true);
-  if (!target) target = resolveFallbackTarget();
+  const resolved = getCurrentTarget();
+  target = resolved ? toPoint(resolved) : null;
   if (!target) {
     group.visible = false;
     if (indicatorEl) indicatorEl.classList.add('hidden');
+    if (compassMarkerEl) compassMarkerEl.style.visibility = 'hidden';
     updateLabels();
     return;
   }
   group.visible = true;
+  if (compassMarkerEl) compassMarkerEl.style.visibility = '';
   group.position.set(target.x, 0, target.z);
   markerMesh.position.y = 2.4 + Math.sin(tSec * Math.PI * 5) * 0.25;
   const dist = Math.hypot(target.x - player.pos.x, target.z - player.pos.z);

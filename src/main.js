@@ -18,6 +18,7 @@ import {
 } from './modal-manager.js';
 import { initWaypointCompass, updateWaypointCompass, refreshHudRects } from './waypoint-compass.js';
 import { installDebugHook } from './debug-hook.js';
+import { bindTargetEntities } from './current-target.js';
 
 export const appContext = {
   scene: null,
@@ -167,6 +168,7 @@ async function bootstrap() {
   audioMod?.initAudio?.();
   combatMod?.initCombat?.(scene, camera);
   const entitiesApi = entitiesMod?.initEntities?.(scene) || null;
+  bindTargetEntities(entitiesApi);
   shopMod?.initShop?.(() => startGame());
   missionsMod?.initMissions?.(entitiesApi, shopMod, combatMod);
   campaignMod?.initCampaign?.(missionsMod);

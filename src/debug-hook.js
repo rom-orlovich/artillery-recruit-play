@@ -4,6 +4,7 @@ import * as stateMod from './state.js';
 import { save, player, runtime, emit, on, syncDerivedStats } from './state.js';
 import { getInput } from './controls.js';
 import { savePlayerPosition, openModalByName, closeAllModals } from './modal-manager.js';
+import { getCurrentTarget, getMapMarkers } from './current-target.js';
 
 function getFallbackObjectiveState() {
   const missionId = save.activeMissionId || 'base';
@@ -88,6 +89,24 @@ export function installDebugHook(ctx) {
     },
     getObjectiveState() {
       return campaignMod?.getCampaignObjectiveState?.() || getFallbackObjectiveState();
+    },
+    getCurrentTarget() {
+      return getCurrentTarget();
+    },
+    getMapMarkers() {
+      return getMapMarkers();
+    },
+    getCameraInfo() {
+      if (!camera) return null;
+      return {
+        x: camera.position.x,
+        y: camera.position.y,
+        z: camera.position.z,
+        yaw: camera.rotation.y,
+        pitch: camera.rotation.x,
+        fov: camera.fov,
+        aspect: camera.aspect
+      };
     },
     completeCurrentMission() {
       if (campaignMod?.completeCurrentCampaignMission?.()) return true;

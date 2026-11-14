@@ -1,8 +1,9 @@
 import { REGIONS, ROADS, FOOTPRINTS, WALLS, GUNS, GUN_BODY_OFFSET, BERM, TREES, MAP_LABELS, TERRAIN_EXTENT } from './world-layout.js';
 import { LANDMARKS, MISSIONS, stripKeyHints } from './config.js';
-import { on, save } from './state.js';
+import { save } from './state.js';
 import { getTerrainHeight, desertFactor } from './world-terrain.js';
 import { splatInfo } from './world.js';
+import { getCurrentTarget } from './current-target.js';
 
 export const MAP_EXTENT = { minX: -210, maxX: 210, minZ: -450, maxZ: 100 };
 export const MAP_PX_PER_M = 2;
@@ -28,9 +29,6 @@ const FOOTPRINT_STYLES = {
 };
 
 let cache = null;
-let objectiveTarget = null;
-let objectiveText = '';
-let tracking = false;
 
 function normalize([x, y, z]) {
   const length = Math.hypot(x, y, z);
@@ -177,46 +175,46 @@ export function getMapLabels() {
   return [...regionLabels, ...MAP_LABELS.map((l) => ({ ...l, kind: 'landmark' })), ...landmarkLabels];
 }
 
-function toPoint(pos) {
-  if (Array.isArray(pos)) return { x: pos[0], z: pos[2] };
-  return pos && typeof pos.x === 'number' && typeof pos.z === 'number' ? { x: pos.x, z: pos.z } : null;
-}
-
-export function trackObjective() {
-  if (tracking) return;
-  tracking = true;
-  on('mission:objective_updated', (payload) => {
-    if (payload?.targetWorldPos) objectiveTarget = toPoint(payload.targetWorldPos);
-    const raw = typeof payload?.text === 'string' && payload.text.trim()
-      ? payload.text.trim()
-      : (typeof payload?.hudText === 'string' ? payload.hudText.trim() : '');
-    if (raw) objectiveText = stripKeyHints(raw).trim();
-  });
-  on('mission:completed', () => {
-    objectiveTarget = null;
-    objectiveText = '';
-  });
-}
+export function trackObjective() {}
 
 export function getObjectiveTarget() {
-  if (objectiveTarget) return objectiveTarget;
-  const mission = MISSIONS[save.activeMissionId] || MISSIONS.base;
-  if (mission?.markerPos) return toPoint(mission.markerPos);
-  const pts = mission?.objectives?.[0]?.points;
-  if (pts && pts.length) return toPoint(pts[0]);
-  return toPoint(MISSIONS.base?.markerPos);
+  const cur = getCurrentTarget();
+  return cur ? { x: cur.x, z: cur.z } : null;
 }
 
 export function getObjectiveInfo() {
-  const mission = MISSIONS[save.activeMissionId] || MISSIONS.base;
+  const cur = getCurrentTarget();
+  if (!cur) {
+    return {
+      target: null,
+      missionTitle: 'אין משימה פעילה',
+      objectiveText: 'אין משימה פעילה'
+    };
+  }
+  const mission = MISSIONS[cur.missionId || save.activeMissionId];
   const missionTitle = stripKeyHints(mission?.title || 'משימה פעילה').trim();
-  const pillText = document.getElementById('objective-text')?.textContent?.trim() || '';
-  const text = objectiveText || pillText || missionTitle;
+  const objectiveText = cur.text ? stripKeyHints(cur.text).trim() : missionTitle;
   return {
-    target: getObjectiveTarget(),
+    target: { x: cur.x, z: cur.z },
     missionTitle,
-    objectiveText: text
+    objectiveText
   };
+}
+
+export function drawMissionIcon(ctx, x, y, s) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(x, y, 4.4 * s, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(255, 224, 92, 0.28)';
+  ctx.fill();
+  ctx.lineWidth = 1.7 * s;
+  ctx.strokeStyle = '#ffe05c';
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(x, y, 1.9 * s, 0, Math.PI * 2);
+  ctx.fillStyle = '#fff3b0';
+  ctx.fill();
+  ctx.restore();
 }
 
 export function drawPlayerArrow(context, x, y, yaw, size) {

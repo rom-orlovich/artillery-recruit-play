@@ -32,7 +32,7 @@ export function ensureFullMapDom(onToggleZoom) {
     '<div class="fmmc-badge">משימה פעילה</div>' +
     '<h3 id="full-map-mission-title" class="fmmc-title"></h3>' +
     '<p id="full-map-objective-text" class="fmmc-objective"></p>' +
-    '<div class="fmmc-meta"><span class="fmmc-label">מרחק ליעד</span><bdi id="full-map-objective-dist" class="fmmc-dist" dir="ltr">0m</bdi></div>' +
+    '<div class="fmmc-meta"><span class="fmmc-label">מרחק ליעד</span><bdi id="full-map-objective-dist" class="fmmc-dist" dir="ltr"></bdi></div>' +
     '<div class="fmmc-legend">' +
     '<span class="fmmc-legend-item"><i class="fmmc-swatch fmmc-swatch-player"></i>מיקומך</span>' +
     '<span class="fmmc-legend-item"><i class="fmmc-swatch fmmc-swatch-target"></i>יעד</span>' +
@@ -65,8 +65,9 @@ export function updateMissionCard(info) {
   if (titleEl) titleEl.textContent = info.missionTitle;
   if (objEl) objEl.textContent = info.objectiveText;
   if (distEl) {
-    const dist = info.target ? Math.round(Math.hypot(info.target.x - player.pos.x, info.target.z - player.pos.z)) : 0;
-    distEl.textContent = `${Math.max(0, dist)}m`;
+    distEl.textContent = info.target
+      ? `${Math.max(0, Math.round(Math.hypot(info.target.x - player.pos.x, info.target.z - player.pos.z)))}m`
+      : '';
   }
 }
 

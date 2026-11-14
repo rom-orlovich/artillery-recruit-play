@@ -5,6 +5,7 @@ let activeMissionRunner = null;
 let lastTelemetrySig = '';
 let missionCompleteHandler = null;
 let lastEntitiesApi = null;
+let carryingAtFrameStart = null;
 
 function evName(key, fallback) {
   return EVENTS[key] || fallback;
@@ -296,6 +297,7 @@ function tickCompositeObjective(st, dt, entitiesApi) {
 }
 
 export function updateCampaignObjectives(dt, entitiesApi = null) {
+  carryingAtFrameStart = player.carryingType;
   const runner = activeMissionRunner;
   if (!runner || runner.completed) return;
   if (!runtime.isPlaying || runtime.paused || runtime.isDead || runtime.shopOpen || runtime.enlistOpen || runtime.campaignModalOpen || runtime.fireMapOpen || runtime.dischargeModalOpen || runtime.modalOpen) return;
@@ -347,12 +349,24 @@ export function handleCampaignInteract(entitiesApi = null) {
       const pickup = pts[0];
       const dropoff = pts[1];
       const itemType = d.carryItem || 'ammoCrate';
-      if (!player.carryingType && pickup && distXZ(player.pos, pickup) <= (pickup.radius || 4.5)) {
+      const inPickup = Boolean(pickup && distXZ(player.pos, pickup) <= (pickup.radius || 4.5));
+      const inDrop = Boolean(dropoff && distXZ(player.pos, dropoff) <= (dropoff.radius || 5.0));
+      const pickedUpThisPress = !carryingAtFrameStart && Boolean(player.carryingType);
+      const droppedThisPress = carryingAtFrameStart === itemType && !player.carryingType;
+      if (droppedThisPress && inPickup && inDrop) {
+        leaf.progress += 1;
+        emit(EVENTS.TOAST, { message: `הועברו ${leaf.progress}/${d.targetCount} פריטים`, duration: 2200 });
+        if (leaf.progress >= d.targetCount) leaf.done = true;
+        updateObjectiveTelemetry(runner, true);
+        if (!completeIfAllDone()) writeSave();
+        return true;
+      }
+      if (!player.carryingType && inPickup) {
         player.carryingType = itemType;
         emit(EVENTS.TOAST, { message: `הרמת פריט — הבא אל ${dropoff?.label || 'היעד'} [E]`, duration: 2400 });
         return true;
       }
-      if (player.carryingType && dropoff && distXZ(player.pos, dropoff) <= (dropoff.radius || 5.0)) {
+      if (player.carryingType && inDrop && !pickedUpThisPress) {
         player.carryingType = null;
         leaf.progress += 1;
         emit(EVENTS.TOAST, { message: `הועברו ${leaf.progress}/${d.targetCount} פריטים`, duration: 2200 });

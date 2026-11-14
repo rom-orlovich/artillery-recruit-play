@@ -1,5 +1,6 @@
 import { REGIONS } from './world-layout.js';
-import { MAP_EXTENT, getMapImage, mapToImage, getMapLabels, getObjectiveInfo, drawPlayerArrow, trackObjective } from './map-image.js';
+import { MAP_EXTENT, getMapImage, mapToImage, getMapLabels, getObjectiveInfo, drawPlayerArrow, trackObjective, drawMissionIcon } from './map-image.js';
+import { getMapMarkers } from './current-target.js';
 import { player, runtime } from './state.js';
 import { travelTo, getRegionAt } from './world.js';
 import { resetInputState, releaseGameLock } from './controls.js';
@@ -13,6 +14,10 @@ const LANDMARK_FONT = 'bold 12px Tahoma, Arial, sans-serif';
 let bound = false;
 let zoomMode = 'fit';
 let rafId = 0;
+
+function setDataset(el, key, value) {
+  if (el.dataset[key] !== value) el.dataset[key] = value;
+}
 
 function isFullMapOpen() {
   const modal = document.getElementById(MODAL_ID);
@@ -100,22 +105,31 @@ function drawMap() {
   drawLabels(ctx, toScreen, dpr);
   drawRoute(ctx, route, toScreen, dpr);
 
+  let missionIcons = 0;
+  for (const m of getMapMarkers()) {
+    const [mx, my] = toScreen(m.x, m.z);
+    if (mx < 0 || my < 0 || mx > canvas.width || my > canvas.height) continue;
+    drawMissionIcon(ctx, mx, my, dpr);
+    missionIcons += 1;
+  }
+  setDataset(canvas, 'missionMarkers', String(missionIcons));
+
   const pulse = 0.5 + 0.5 * Math.sin((performance.now() / 1000) * 5);
   if (target) {
     const [tx, ty] = drawTargetAndLabel(ctx, target, info.objectiveText, toScreen, dpr, pulse);
-    canvas.dataset.objX = tx.toFixed(1);
-    canvas.dataset.objY = ty.toFixed(1);
+    setDataset(canvas, 'objX', tx.toFixed(1));
+    setDataset(canvas, 'objY', ty.toFixed(1));
   } else {
-    canvas.dataset.objX = '';
-    canvas.dataset.objY = '';
+    setDataset(canvas, 'objX', '');
+    setDataset(canvas, 'objY', '');
   }
 
   const [px, py] = toScreen(player.pos.x, player.pos.z);
   drawPlayerArrow(ctx, px, py, player.yaw, 7 * dpr);
-  canvas.dataset.playerX = px.toFixed(1);
-  canvas.dataset.playerY = py.toFixed(1);
-  canvas.dataset.scale = scale.toFixed(4);
-  canvas.dataset.zoomMode = zoomMode;
+  setDataset(canvas, 'playerX', px.toFixed(1));
+  setDataset(canvas, 'playerY', py.toFixed(1));
+  setDataset(canvas, 'scale', scale.toFixed(4));
+  setDataset(canvas, 'zoomMode', zoomMode);
 
   for (const button of document.querySelectorAll('.btn-travel')) button.classList.toggle('active', button.dataset.region === active);
 }

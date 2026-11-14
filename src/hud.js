@@ -1,6 +1,7 @@
-import { EVENTS, SHOP_ITEMS, MISSIONS, stripKeyHints } from './config.js';
+import { EVENTS, SHOP_ITEMS, stripKeyHints } from './config.js';
 import { save, player, runtime, getCurrentRole, getCurrentRank, on } from './state.js';
 import { renderMissionsList, invalidateMissionsListKey, initMissionsPanel } from './hud-missions.js';
+import { getCurrentTarget } from './current-target.js';
 
 const refs = {};
 function ref(id) {
@@ -137,28 +138,21 @@ export function showRadio(payload = {}) {
   }
 }
 
-function updateObjectivePill(payload = {}) {
+function updateObjectivePill() {
   const textEl = ref('objective-text');
   const distEl = ref('objective-distance');
-  const rawText = typeof payload?.text === 'string' && payload.text.trim()
-    ? payload.text.trim()
-    : (typeof payload?.hudText === 'string' ? payload.hudText.trim() : '');
-  const cleaned = stripKeyHints(rawText).trim();
-  const displayText = cleaned.length > 36 ? `${cleaned.slice(0, 35)}…` : cleaned;
+  const target = getCurrentTarget();
+  const cleaned = target?.text ? stripKeyHints(target.text).trim() : '';
+  const rawDisplay = cleaned || (target ? 'משימה פעילה' : 'אין משימה פעילה');
+  const displayText = rawDisplay.length > 36 ? `${rawDisplay.slice(0, 35)}…` : rawDisplay;
 
-  if (displayText && displayText !== lastObjectiveKey) {
+  if (displayText !== lastObjectiveKey) {
     lastObjectiveKey = displayText;
     if (textEl) textEl.textContent = displayText;
-  } else if (!displayText && textEl && !textEl.textContent.trim()) {
-    const fallback = MISSIONS[save.activeMissionId];
-    if (textEl) textEl.textContent = stripKeyHints(fallback?.title || 'מטרה פעילה').slice(0, 36);
   }
 
   if (distEl) {
-    const d = typeof payload?.distanceMeters === 'number' && Number.isFinite(payload.distanceMeters)
-      ? Math.round(payload.distanceMeters)
-      : 0;
-    const distText = `${Math.max(0, d)}m`;
+    const distText = target ? `${Math.max(0, Math.round(Math.hypot(target.x - player.pos.x, target.z - player.pos.z)))}m` : '';
     if (distEl.textContent !== distText) distEl.textContent = distText;
   }
 }
@@ -179,6 +173,7 @@ export function updateHUD(nearbyInteraction) {
   lastNearby = nearbyInteraction || null;
   syncStatusPanel();
   renderMissionsList();
+  updateObjectivePill();
 
   const role = getCurrentRole();
   const activeSec = runtime.abilityActiveLeft > 0 ? Math.ceil(runtime.abilityActiveLeft) : 0;
@@ -313,8 +308,8 @@ export function initHUD() {
       const suffix = reward ? ` (+${reward} ₪)` : '';
       showToast(`🏆 הישג נפתח: ${title}${suffix}`, 4500);
     });
-    on('mission:objective_updated', (payload) => {
-      updateObjectivePill(payload);
+    on('mission:objective_updated', () => {
+      updateObjectivePill();
       renderMissionsList();
     });
   }
@@ -330,5 +325,5 @@ export function initHUD() {
   lastObjectiveKey = '';
   hideRadio();
   updateHUD(null);
-  updateObjectivePill({});
+  updateObjectivePill();
 }
