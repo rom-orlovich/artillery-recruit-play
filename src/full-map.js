@@ -1,6 +1,19 @@
 import { REGIONS } from './world-layout.js';
-import { MAP_EXTENT, getMapImage, mapToImage, getMapLabels, getObjectiveInfo, drawPlayerArrow, trackObjective, drawMissionIcon } from './map-image.js';
+import {
+  MAP_EXTENT,
+  getMapImage,
+  mapToImage,
+  getMapLabels,
+  getObjectiveInfo,
+  drawPlayerArrow,
+  trackObjective,
+  drawMissionIcon,
+  extractEntityPos,
+  isEntityActive,
+  drawDroneDot
+} from './map-image.js';
 import { getMapMarkers } from './current-target.js';
+import { getDrones } from './entities.js';
 import { player, runtime } from './state.js';
 import { travelTo, getRegionAt } from './world.js';
 import { resetInputState, releaseGameLock } from './controls.js';
@@ -10,6 +23,8 @@ import { MODAL_ID, ensureStylesheet, ensureFullMapDom, syncToggleButton, updateM
 
 const REGION_FONT = 'bold 15px Tahoma, Arial, sans-serif';
 const LANDMARK_FONT = 'bold 12px Tahoma, Arial, sans-serif';
+const DETECT_RANGE_M = 80;
+const RESET_RANGE_M = 100;
 
 let bound = false;
 let zoomMode = 'fit';
@@ -60,6 +75,30 @@ function drawLabels(ctx, toScreen, dpr) {
     ctx.fillStyle = label.kind === 'region' ? '#7ee8dc' : '#f4efe0';
     ctx.fillText(label.text, x, y + 1);
   }
+}
+
+function drawFullMapDrones(ctx, canvas, toScreen, dpr, pulse) {
+  let threatDots = 0;
+  let firstX = '';
+  let firstY = '';
+  for (const drone of getDrones()) {
+    const pos = isEntityActive(drone) && extractEntityPos(drone);
+    if (!pos) continue;
+    const dist = Math.hypot(pos.x - player.pos.x, pos.z - player.pos.z);
+    const inRange = dist <= DETECT_RANGE_M || (Boolean(drone._threatAlerted) && dist <= RESET_RANGE_M);
+    if (!inRange) continue;
+    const [dx, dy] = toScreen(pos.x, pos.z);
+    if (dx < 0 || dy < 0 || dx > canvas.width || dy > canvas.height) continue;
+    drawDroneDot(ctx, dx, dy, drone.enemyType, dpr, pulse);
+    if (threatDots === 0) {
+      firstX = dx.toFixed(1);
+      firstY = dy.toFixed(1);
+    }
+    threatDots += 1;
+  }
+  setDataset(canvas, 'threatDots', String(threatDots));
+  setDataset(canvas, 'threatX', firstX);
+  setDataset(canvas, 'threatY', firstY);
 }
 
 function drawMap() {
@@ -115,6 +154,8 @@ function drawMap() {
   setDataset(canvas, 'missionMarkers', String(missionIcons));
 
   const pulse = 0.5 + 0.5 * Math.sin((performance.now() / 1000) * 5);
+  drawFullMapDrones(ctx, canvas, toScreen, dpr, pulse);
+
   if (target) {
     const [tx, ty] = drawTargetAndLabel(ctx, target, info.objectiveText, toScreen, dpr, pulse);
     setDataset(canvas, 'objX', tx.toFixed(1));

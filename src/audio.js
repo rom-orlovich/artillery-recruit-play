@@ -132,6 +132,18 @@ export function playRadarPingSound() {
   playTone('sine', 1420, 1380, 0.18, 0.08, 0.16);
 }
 
+export function playThreatAlarmSound(severity = 'red') {
+  if (getVolume() <= 0) return;
+  if (severity === 'amber') {
+    playTone('triangle', 660, 880, 0.12, 0.16, 0);
+    playTone('triangle', 880, 660, 0.12, 0.14, 0.14);
+    return;
+  }
+  playTone('sawtooth', 780, 980, 0.11, 0.18, 0);
+  playTone('sawtooth', 980, 740, 0.11, 0.18, 0.13);
+  playTone('sawtooth', 780, 980, 0.13, 0.16, 0.26);
+}
+
 export function initAudio() {
   if (initialized) return;
   initialized = true;

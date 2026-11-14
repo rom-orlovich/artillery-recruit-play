@@ -314,9 +314,9 @@ export function handleInteract(entitiesApi, shopApi, combatApi) {
       if (runtime.radarCalibrated >= 3) {
         runtime.radarWaveActive = true;
         runtime.radarDronesKilled = 0;
-        entitiesApi?.spawnDrone?.({ x: LANDMARKS.mafikPos.x - 12, y: 4.8, z: LANDMARKS.mafikPos.z - 34 }, true);
-        entitiesApi?.spawnDrone?.({ x: LANDMARKS.mafikPos.x, y: 5.2, z: LANDMARKS.mafikPos.z - 40 }, true);
-        entitiesApi?.spawnDrone?.({ x: LANDMARKS.mafikPos.x + 12, y: 4.8, z: LANDMARKS.mafikPos.z - 34 }, true);
+        entitiesApi?.spawnDrone?.({ x: LANDMARKS.mafikPos.x - 12, y: 4.8, z: LANDMARKS.mafikPos.z - 34 }, { isMissionDrone: true, enemyType: 'recon_drone' });
+        entitiesApi?.spawnDrone?.({ x: LANDMARKS.mafikPos.x, y: 5.2, z: LANDMARKS.mafikPos.z - 40 }, { isMissionDrone: true, enemyType: 'recon_drone' });
+        entitiesApi?.spawnDrone?.({ x: LANDMARKS.mafikPos.x + 12, y: 4.8, z: LANDMARKS.mafikPos.z - 34 }, { isMissionDrone: true, enemyType: 'recon_drone' });
         emit(EVENTS.TOAST, { message: 'מכ"ם ר"ז פעיל! יירט 3 רחפני תצפית עוינים מעל קו התומ"תים!', duration: 3600 });
       } else {
         emit(EVENTS.TOAST, { message: `כוילו ${runtime.radarCalibrated}/3 אנטנות מכ"ם.`, duration: 2400 });

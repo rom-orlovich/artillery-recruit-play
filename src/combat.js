@@ -297,7 +297,7 @@ export function triggerRoleAbility(entitiesApi) {
   });
 }
 
-export function applyDamage(rawDamage, entitiesApi) {
+export function applyDamage(rawDamage, entitiesApi, sourcePos = null) {
   if (runtime.isDead || !runtime.isPlaying) return;
   const dmg = Math.max(1, Math.round(rawDamage * getDamageMultiplier()));
   player.hp = Math.max(0, player.hp - dmg);
@@ -309,7 +309,12 @@ export function applyDamage(rawDamage, entitiesApi) {
     damageFlashTimer = setTimeout(() => flash.classList.remove('active'), 170);
   }
 
-  emit(EVENTS.PLAYER_DAMAGED, { amount: dmg, hp: player.hp, maxHp: player.maxHp });
+  const rawSource = sourcePos || runtime.pendingDamageSource || null;
+  runtime.pendingDamageSource = null;
+  const src = rawSource && typeof rawSource.x === 'number' && typeof rawSource.z === 'number'
+    ? { x: rawSource.x, y: rawSource.y || 0, z: rawSource.z }
+    : null;
+  emit(EVENTS.PLAYER_DAMAGED, { amount: dmg, hp: player.hp, maxHp: player.maxHp, sourcePos: src });
 
   if (player.hp <= 0) {
     runtime.isDead = true;

@@ -20,6 +20,7 @@ import { initWaypointCompass, updateWaypointCompass, refreshHudRects } from './w
 import { installDebugHook } from './debug-hook.js';
 import { bindTargetEntities } from './current-target.js';
 import { findNearbyCampaignInteraction, getActiveCarryPoints } from './campaign-objectives.js';
+import { initThreatAlerts, updateThreatAlerts, resetThreatAlerts } from './threat-alerts.js';
 
 export const appContext = {
   scene: null,
@@ -176,6 +177,7 @@ async function bootstrap() {
   minimapMod?.initMinimap?.(document.getElementById('minimap-canvas'));
   hudMod?.initHUD?.();
   initWaypointCompass(scene, camera);
+  initThreatAlerts();
   if (!hudMod) syncFallbackHUD();
 
   function onInteract() {
@@ -267,6 +269,7 @@ async function bootstrap() {
     startGame,
     onReset: () => {
       entitiesMod?.clearAllDrones?.();
+      resetThreatAlerts();
       missionsMod?.initMissions?.(entitiesApi, shopMod, combatMod);
       campaignMod?.initCampaign?.(missionsMod);
       if (!hudMod) syncFallbackHUD();
@@ -287,6 +290,7 @@ async function bootstrap() {
     player.yaw = 0;
     player.pitch = 0;
     resetInputState();
+    resetThreatAlerts();
     emit(EVENTS.PLAYER_RESPAWNED, {});
     if (!hudMod) syncFallbackHUD();
     startGame();
@@ -348,7 +352,8 @@ async function bootstrap() {
     if (activePlay) {
       updatePlayerMovement(dt, camera);
       combatMod?.updateCombat?.(dt, scene);
-      entitiesMod?.updateEntities?.(dt, tSec, (dmg) => combatMod?.applyDamage?.(dmg, entitiesApi));
+      entitiesMod?.updateEntities?.(dt, tSec, (dmg, sourcePos) => combatMod?.applyDamage?.(dmg, entitiesApi, sourcePos));
+      updateThreatAlerts(dt, camera, entitiesApi);
       missionsMod?.updateMissions?.(dt, entitiesApi);
       campaignMod?.updateCampaignObjectives?.(dt, entitiesApi);
       const nearby = missionsMod?.findNearbyInteraction?.(entitiesApi) || findNearbyCampaignInteraction() || null;

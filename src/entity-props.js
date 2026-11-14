@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { LANDMARKS } from './config.js';
+import { LANDMARKS, ENEMY_TYPES } from './config.js';
 import { getTerrainHeight } from './world-terrain.js';
 
 const SHELL_OFFSETS = [[-0.6, -0.6], [0.6, -0.6], [-0.6, 0.6], [0.6, 0.6]];
@@ -30,15 +30,19 @@ export function createSandbagMesh(color = 0xb89f6d) {
   return bag;
 }
 
-export function createDroneVisuals(isMissionDrone) {
+export function createDroneVisuals(isMissionDrone, enemyType = 'attack_drone') {
+  const def = ENEMY_TYPES[enemyType] || ENEMY_TYPES.attack_drone;
+  const isRecon = def.id === 'recon_drone';
   const group = new THREE.Group();
+  const bodyColor = isRecon ? 0x453924 : (isMissionDrone ? 0x3b2a3f : 0x2c3034);
   const body = new THREE.Mesh(
     new THREE.BoxGeometry(0.95, 0.24, 0.95),
-    new THREE.MeshStandardMaterial({ color: isMissionDrone ? 0x3b2a3f : 0x2c3034, metalness: 0.45, roughness: 0.4 })
+    new THREE.MeshStandardMaterial({ color: bodyColor, metalness: 0.45, roughness: 0.4 })
   );
   group.add(body);
 
-  const eyeMat = new THREE.MeshBasicMaterial({ color: isMissionDrone ? 0xff9922 : 0xff2f2f });
+  const eyeColor = isRecon ? def.hex : (isMissionDrone ? 0xff9922 : def.hex);
+  const eyeMat = new THREE.MeshBasicMaterial({ color: eyeColor });
   const eye = new THREE.Mesh(new THREE.SphereGeometry(0.18, 10, 10), eyeMat);
   eye.position.set(0, -0.05, 0.46);
   group.add(eye);

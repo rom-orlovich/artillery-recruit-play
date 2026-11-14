@@ -1,0 +1,126 @@
+#threat-banner {
+  position: fixed;
+  top: 48px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 48;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  line-height: 1.25;
+  font-weight: 700;
+  color: #fff6f6;
+  background: rgba(138, 16, 16, 0.92);
+  border: 1.5px solid #ff5a5a;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  white-space: nowrap;
+  max-width: calc(100vw - 24px);
+}
+
+#threat-banner.severity-amber {
+  color: #fff8e6;
+  background: rgba(136, 78, 8, 0.92);
+  border-color: #ffba3b;
+}
+
+#threat-banner.hidden {
+  display: none;
+}
+
+.threat-banner-icon {
+  flex: 0 0 auto;
+}
+
+.threat-banner-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#threat-arrows {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 46;
+  overflow: hidden;
+}
+
+.threat-arrow {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 24px;
+  height: 24px;
+  pointer-events: none;
+  clip-path: polygon(100% 50%, 15% 10%, 35% 50%, 15% 90%);
+  background: #ff3b3b;
+  filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.85));
+}
+
+.threat-arrow.severity-amber {
+  background: #ffaa22;
+}
+
+.threat-arrow.hidden {
+  display: none;
+}
+
+#damage-flash.edge-active {
+  opacity: 1;
+  background: transparent;
+}
+
+.dmg-edge {
+  position: fixed;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s ease-out;
+}
+
+.dmg-edge.visible {
+  opacity: 1;
+  transition: none;
+}
+
+.dmg-edge-left {
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 96px;
+  background: linear-gradient(to right, rgba(255, 28, 28, 0.85), transparent);
+}
+
+.dmg-edge-right {
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 96px;
+  background: linear-gradient(to left, rgba(255, 28, 28, 0.85), transparent);
+}
+
+.dmg-edge-top {
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 76px;
+  background: linear-gradient(to bottom, rgba(255, 28, 28, 0.85), transparent);
+}
+
+.dmg-edge-bottom {
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 76px;
+  background: linear-gradient(to top, rgba(255, 28, 28, 0.85), transparent);
+}
+
+@media (max-height: 320px) {
+  #threat-banner {
+    font-size: 12.5px;
+    padding: 4px 10px;
+  }
+}

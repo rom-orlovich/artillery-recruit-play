@@ -1,9 +1,21 @@
 import { save, player, runtime } from './state.js';
-import { getMapImage, mapToImage, MAP_PX_PER_M, getObjectiveTarget, trackObjective, drawPlayerArrow, drawMissionIcon } from './map-image.js';
+import {
+  getMapImage,
+  mapToImage,
+  MAP_PX_PER_M,
+  getObjectiveTarget,
+  trackObjective,
+  drawPlayerArrow,
+  drawMissionIcon,
+  extractEntityPos,
+  isEntityActive,
+  drawDroneDot
+} from './map-image.js';
 import { getMapMarkers } from './current-target.js';
 import { initFullMap, openFullMap } from './full-map.js';
 
 const VIEW_METERS = 140;
+const MINI_RADIUS = VIEW_METERS / 2;
 const BASE_SIZE = 190;
 const MAX_DPR = 2.5;
 
@@ -15,19 +27,6 @@ let ctx = null;
 
 function setDataset(el, key, value) {
   if (el.dataset[key] !== value) el.dataset[key] = value;
-}
-
-function extractPos(item) {
-  if (!item) return null;
-  const p = item.mesh?.position || item.position || item.pos || item;
-  if (p && typeof p.x === 'number' && typeof p.z === 'number') return { x: p.x, z: p.z };
-  return null;
-}
-
-function isEntityActive(item) {
-  if (!item) return false;
-  if (item.alive === false || item.active === false || item.destroyed === true) return false;
-  return !(item.mesh && item.mesh.visible === false);
 }
 
 export function initMinimap(canvasEl) {
@@ -223,35 +222,40 @@ function drawEntities(entitiesApi, pulse) {
   if (Array.isArray(entitiesApi?.checkpoints) && !save.completed.patrol) {
     entitiesApi.checkpoints.forEach((cp, idx) => {
       if (idx < runtime.patrolStep) return;
-      const pos = extractPos(cp);
+      const pos = extractEntityPos(cp);
       if (pos) dot(pos.x, pos.z, idx === runtime.patrolStep ? 4.5 : 3, idx === runtime.patrolStep ? '#4bc6ff' : 'rgba(75, 198, 255, 0.5)');
     });
   }
   const scan = save.profile.roleId === 'rokhash' && runtime.abilityActiveLeft > 0;
   if (Array.isArray(entitiesApi?.borderTransmitters) && (save.profile.roleId === 'rokhash' || scan)) {
     for (const tx of entitiesApi.borderTransmitters) {
-      const pos = isEntityActive(tx) && extractPos(tx);
+      const pos = isEntityActive(tx) && extractEntityPos(tx);
       if (pos) dot(pos.x, pos.z, 4, '#ff9838', scan ? '#ffd15c' : null);
     }
   }
   const mafikAlert = save.profile.roleId === 'mafik';
+  let threatDots = 0;
   for (const drone of entitiesApi?.drones || []) {
-    const pos = isEntityActive(drone) && extractPos(drone);
+    const pos = isEntityActive(drone) && extractEntityPos(drone);
     if (!pos) continue;
+    const dist = Math.hypot(pos.x - player.pos.x, pos.z - player.pos.z);
+    if (dist > MINI_RADIUS) continue;
+    const [dx, dy] = worldToMini(pos.x, pos.z);
+    const isRecon = drone.enemyType === 'recon_drone';
     if (mafikAlert) {
-      const [dx, dy] = worldToMini(pos.x, pos.z);
       ctx.save();
       ctx.setLineDash([2, 3]);
-      ctx.strokeStyle = 'rgba(255, 90, 90, 0.5)';
+      ctx.strokeStyle = isRecon ? 'rgba(255, 170, 34, 0.5)' : 'rgba(255, 90, 90, 0.5)';
       ctx.beginPath();
       ctx.moveTo(canvas.width / 2, canvas.height / 2);
       ctx.lineTo(dx, dy);
       ctx.stroke();
       ctx.restore();
     }
-    dot(pos.x, pos.z, 4, '#ff3b3b', '#3a0b0b');
-    if (mafikAlert || scan) dot(pos.x, pos.z, 7 + pulse * 3, null, 'rgba(255, 90, 90, 0.85)');
+    drawDroneDot(ctx, dx, dy, drone.enemyType, unit, pulse);
+    threatDots += 1;
   }
+  setDataset(canvas, 'threatDots', String(threatDots));
 }
 
 export function drawMinimap(entitiesApi) {
@@ -262,7 +266,7 @@ export function drawMinimap(entitiesApi) {
   fitCanvasToScreen();
   const w = canvas.width;
   const h = canvas.height;
-  const pulse = 0.5 + 0.5 * Math.sin((performance.now() / 1000) * 5);
+  const pulse = 0.5 + 0.5 * Math.sin((performance.now() / 1000) * 6);
   const [ix, iy] = mapToImage(player.pos.x, player.pos.z);
   const src = VIEW_METERS * MAP_PX_PER_M;
   ctx.fillStyle = '#20251a';

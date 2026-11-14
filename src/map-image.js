@@ -1,5 +1,5 @@
 import { REGIONS, ROADS, FOOTPRINTS, WALLS, GUNS, GUN_BODY_OFFSET, BERM, TREES, MAP_LABELS, TERRAIN_EXTENT } from './world-layout.js';
-import { LANDMARKS, MISSIONS, stripKeyHints } from './config.js';
+import { LANDMARKS, MISSIONS, ENEMY_TYPES, stripKeyHints } from './config.js';
 import { save } from './state.js';
 import { getTerrainHeight, desertFactor } from './world-terrain.js';
 import { splatInfo } from './world.js';
@@ -199,6 +199,42 @@ export function getObjectiveInfo() {
     missionTitle,
     objectiveText
   };
+}
+
+export function extractEntityPos(item) {
+  if (!item) return null;
+  const p = item.mesh?.position || item.position || item.pos || item;
+  if (p && typeof p.x === 'number' && typeof p.z === 'number') return { x: p.x, z: p.z };
+  return null;
+}
+
+export function isEntityActive(item) {
+  if (!item) return false;
+  if (item.alive === false || item.active === false || item.destroyed === true) return false;
+  return !(item.mesh && item.mesh.visible === false);
+}
+
+export function drawDroneDot(ctx, x, y, enemyType, scale, pulse) {
+  const def = ENEMY_TYPES[enemyType] || ENEMY_TYPES.attack_drone;
+  const isRecon = def.id === 'recon_drone';
+  const fill = def.color;
+  const stroke = isRecon ? '#4a2d00' : '#3a0b0b';
+  const ring = isRecon ? 'rgba(255, 170, 34, 0.85)' : 'rgba(255, 59, 59, 0.85)';
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(x, y, (3.6 + pulse * 1.4) * scale, 0, Math.PI * 2);
+  ctx.fillStyle = fill;
+  ctx.fill();
+  ctx.strokeStyle = stroke;
+  ctx.lineWidth = 1.6 * scale;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(x, y, (6.4 + pulse * 2.8) * scale, 0, Math.PI * 2);
+  ctx.strokeStyle = ring;
+  ctx.lineWidth = 1.6 * scale;
+  ctx.stroke();
+  ctx.restore();
+  return isRecon;
 }
 
 export function drawMissionIcon(ctx, x, y, s) {

@@ -52,6 +52,35 @@ export const EVENTS = Object.freeze({
   TOAST: 'ui:toast'
 });
 
+export const ENEMY_TYPES = Object.freeze({
+  attack_drone: {
+    id: 'attack_drone',
+    nameHe: 'רחפן תקיפה',
+    pluralHe: 'רחפני תקיפה',
+    severity: 'red',
+    color: '#ff3b3b',
+    hex: 0xff2f2f,
+    dealsDamage: true,
+    damage: 12,
+    marksPlayer: false,
+    speed: 4.4,
+    hp: 2
+  },
+  recon_drone: {
+    id: 'recon_drone',
+    nameHe: 'רחפן תצפית',
+    pluralHe: 'רחפני תצפית',
+    severity: 'amber',
+    color: '#ffaa22',
+    hex: 0xffaa22,
+    dealsDamage: false,
+    damage: 0,
+    marksPlayer: true,
+    speed: 3.8,
+    hp: 2
+  }
+});
+
 export const WORLD_BOUNDS = {
   minX: -205,
   maxX: 205,

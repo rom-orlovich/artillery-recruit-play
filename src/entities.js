@@ -1,5 +1,5 @@
 import { save, player, runtime } from './state.js';
-import { LANDMARKS } from './config.js';
+import { LANDMARKS, ENEMY_TYPES } from './config.js';
 import { getTerrainHeight } from './world-terrain.js';
 import {
   createDroneVisuals,
@@ -22,6 +22,10 @@ const droneHitMeshes = [];
 const targetHitMeshes = [];
 let apiRef = null;
 
+export function getDrones() {
+  return drones;
+}
+
 function normalizeSpawnArgs(posOrOpts, secondArg) {
   const opts = posOrOpts && typeof posOrOpts === 'object' ? { ...posOrOpts } : {};
   if (typeof secondArg === 'boolean') {
@@ -33,14 +37,19 @@ function normalizeSpawnArgs(posOrOpts, secondArg) {
   const hasY = typeof opts.y === 'number' && Number.isFinite(opts.y);
   const hasZ = typeof opts.z === 'number' && Number.isFinite(opts.z);
   const isMissionDrone = Boolean(opts.isMissionDrone || opts.missionTag || opts.type === 'mission');
-  const hp = typeof opts.hp === 'number' && opts.hp > 0 ? opts.hp : 2;
-  const speed = typeof opts.speed === 'number' && opts.speed > 0 ? opts.speed : (isMissionDrone ? 3.8 : 4.4);
+  const enemyType = ENEMY_TYPES[opts.enemyType]
+    ? opts.enemyType
+    : (ENEMY_TYPES[opts.type] ? opts.type : 'attack_drone');
+  const enemyDef = ENEMY_TYPES[enemyType];
+  const hp = typeof opts.hp === 'number' && opts.hp > 0 ? opts.hp : enemyDef.hp;
+  const speed = typeof opts.speed === 'number' && opts.speed > 0 ? opts.speed : (isMissionDrone ? 3.8 : enemyDef.speed);
   return {
     x: hasX ? opts.x : LANDMARKS.outpostCenter.x + (Math.random() - 0.5) * 34,
     y: hasY ? opts.y : 4.2 + Math.random() * 1.8,
     z: hasZ ? opts.z : LANDMARKS.outpostCenter.z + 12 - Math.random() * 28,
     isMissionDrone,
-    type: opts.type || (isMissionDrone ? 'mission' : 'patrol'),
+    enemyType,
+    type: opts.type || (isMissionDrone ? 'mission' : enemyType),
     missionTag: opts.missionTag || null,
     hp,
     speed
@@ -59,13 +68,14 @@ export function spawnDrone(customPos = null, secondArg = false) {
   if (!sceneRef) return null;
   droneSeq += 1;
   const cfg = normalizeSpawnArgs(customPos, secondArg);
-  const { group, hitMesh, eyeMat, rotors } = createDroneVisuals(cfg.isMissionDrone);
+  const { group, hitMesh, eyeMat, rotors } = createDroneVisuals(cfg.isMissionDrone, cfg.enemyType);
   group.position.set(cfg.x, cfg.y, cfg.z);
   sceneRef.add(group);
 
   const drone = {
     id: `drone_${droneSeq}`,
     kind: 'drone',
+    enemyType: cfg.enemyType,
     type: cfg.type,
     missionTag: cfg.missionTag,
     hp: cfg.hp,
@@ -73,6 +83,7 @@ export function spawnDrone(customPos = null, secondArg = false) {
     isMissionDrone: cfg.isMissionDrone,
     destroyed: false,
     _countedMissionKill: false,
+    _threatAlerted: false,
     baseY: cfg.y,
     phase: Math.random() * Math.PI * 2,
     speed: cfg.speed,
@@ -110,6 +121,7 @@ export function spawnTransmitter(posOrOpts = {}) {
 export function destroyDrone(drone) {
   if (!drone || drone.destroyed) return;
   drone.destroyed = true;
+  drone._threatAlerted = false;
   if (sceneRef && drone.group) sceneRef.remove(drone.group);
   const idx = drones.indexOf(drone);
   if (idx !== -1) drones.splice(idx, 1);
@@ -258,6 +270,11 @@ export function initEntities(scene) {
 export function updateEntities(dt, tSec, onPlayerHitByDrone) {
   if (runtime.paused || runtime.modalOpen) return;
 
+  if (runtime.markedUntil > 0 && tSec >= runtime.markedUntil) {
+    runtime.markedUntil = 0;
+  }
+  const isMarked = runtime.markedUntil > 0;
+
   if (apiRef) {
     if (runtime.uavLaunched) {
       const p = apiRef.uavPad.uavPlane;
@@ -292,16 +309,21 @@ export function updateEntities(dt, tSec, onPlayerHitByDrone) {
     const dz = player.pos.z - d.pos.z;
     const dist = Math.hypot(dx, dz) || 1;
     const isJammed = jammed && dist < 30;
+    const def = ENEMY_TYPES[d.enemyType] || ENEMY_TYPES.attack_drone;
+    const isAttack = def.id !== 'recon_drone' && Boolean(def.dealsDamage);
+    const aggroRange = isMarked && isAttack ? 120 : 90;
+    const speedMult = isMarked && isAttack ? 1.3 : 1;
 
-    d.eyeMat.color.setHex(isJammed ? 0x4cc9ff : (d.isMissionDrone ? 0xff9922 : 0xff2f2f));
+    d.eyeMat.color.setHex(isJammed ? 0x4cc9ff : (d.isMissionDrone && def.id === 'attack_drone' ? 0xff9922 : def.hex));
 
-    if (!isJammed && dist < 90) {
-      if (dist > 4.8) {
+    if (!isJammed && dist <= aggroRange) {
+      const minDist = def.dealsDamage ? 4.8 : 12;
+      if (dist > minDist) {
         const strafeX = -dz / dist;
         const strafeZ = dx / dist;
         const s = Math.sin(tSec * 1.6 + d.phase) * 0.45;
-        d.pos.x += ((dx / dist) + strafeX * s) * d.speed * dt;
-        d.pos.z += ((dz / dist) + strafeZ * s) * d.speed * dt;
+        d.pos.x += ((dx / dist) + strafeX * s) * d.speed * speedMult * dt;
+        d.pos.z += ((dz / dist) + strafeZ * s) * d.speed * speedMult * dt;
       }
       d.pos.y = getTerrainHeight(d.pos.x, d.pos.z) + d.baseY + Math.sin(tSec * 3.2 + d.phase) * 0.35;
       d.group.lookAt(player.pos.x, player.pos.y + 1.4, player.pos.z);
@@ -310,7 +332,13 @@ export function updateEntities(dt, tSec, onPlayerHitByDrone) {
         d.attackCooldown -= dt;
         if (d.attackCooldown <= 0) {
           d.attackCooldown = 2.4;
-          onPlayerHitByDrone?.(12);
+          if (def.dealsDamage) {
+            runtime.pendingDamageSource = { x: d.pos.x, y: d.pos.y, z: d.pos.z };
+            onPlayerHitByDrone?.(def.damage, d.pos);
+            runtime.pendingDamageSource = null;
+          } else if (def.marksPlayer) {
+            runtime.markedUntil = tSec + 4;
+          }
         }
       }
     } else if (isJammed) {

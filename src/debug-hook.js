@@ -1,10 +1,11 @@
-import { EVENTS, ROLES } from './config.js';
+import { EVENTS, ROLES, ENEMY_TYPES } from './config.js';
 import * as configMod from './config.js';
 import * as stateMod from './state.js';
 import { save, player, runtime, emit, on, syncDerivedStats } from './state.js';
 import { getInput } from './controls.js';
 import { savePlayerPosition, openModalByName, closeAllModals } from './modal-manager.js';
 import { getCurrentTarget, getMapMarkers } from './current-target.js';
+import { getTerrainHeight } from './world-terrain.js';
 
 function getFallbackObjectiveState() {
   const missionId = save.activeMissionId || 'base';
@@ -53,6 +54,7 @@ export function installDebugHook(ctx) {
       hud: hudMod
     },
     counters,
+    entitiesApi,
     enlist(roleId = 'doher') {
       const validRoleId = ROLES[roleId] ? roleId : 'doher';
       const role = ROLES[validRoleId];
@@ -116,6 +118,29 @@ export function installDebugHook(ctx) {
         return true;
       }
       return false;
+    },
+    spawnEnemy(type = 'attack_drone', dx = 0, dz = -60) {
+      if (!entitiesApi?.spawnDrone) return null;
+      const enemyType = ENEMY_TYPES[type] ? type : 'attack_drone';
+      const x = player.pos.x + (Number(dx) || 0);
+      const z = player.pos.z + (Number(dz) || 0);
+      const y = getTerrainHeight(x, z) + 2.5;
+      const drone = entitiesApi.spawnDrone({ x, y, z, enemyType, type: enemyType });
+      if (drone) {
+        drone.kind = 'drone';
+        drone.enemyType = enemyType;
+        if (drone.pos) {
+          drone.pos.x = x;
+          drone.pos.y = y;
+          drone.pos.z = z;
+        }
+        if (drone.group) {
+          drone.group.position.set(x, y, z);
+          drone.group.updateMatrixWorld?.(true);
+        }
+        if (drone.hitMesh) drone.hitMesh.updateMatrixWorld?.(true);
+      }
+      return drone;
     },
     spawnTestEntities() {
       const fx = -Math.sin(player.yaw);

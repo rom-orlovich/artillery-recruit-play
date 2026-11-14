@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="./styles/hud.css">
   <link rel="stylesheet" href="./styles/touch.css">
   <link rel="stylesheet" href="./styles/hud-mobile.css">
+  <link rel="stylesheet" href="./styles/threats.css">
   <script type="importmap">
     {
       "imports": {
@@ -29,6 +30,8 @@
   <div id="crosshair" class="hidden"></div>
 
   <div id="hud-layer">
+    <div id="threat-arrows" aria-hidden="true"></div>
+    <div id="threat-banner" class="hidden" role="status" aria-live="polite"></div>
     <div id="hud-top-right-stack">
       <section id="hud-status" class="hud-panel" role="button" tabindex="0" aria-expanded="false">
         <div class="hud-header-row">
