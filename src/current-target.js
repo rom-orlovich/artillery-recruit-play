@@ -103,8 +103,9 @@ function m1Target() {
   const camp = activeLeaf();
   const campDef = camp?.leaf?.def || null;
   const campShoot = campDef && campDef.type === 'shoot-targets' ? campDef : null;
+  const allowsFlag = (id, campMatch = false) => !camp || activeId === id || campMatch;
 
-  if (runtime.rangeActive) {
+  if (runtime.rangeActive && allowsFlag('range', Boolean(campShoot && campShoot.entityGroup !== 'roemTargets'))) {
     const area = centroidPos(entities?.rangeTargets, () => true) || RANGE_AREA;
     const id = campShoot && campShoot.entityGroup !== 'roemTargets' ? camp.runner.mission.id : 'range';
     return make(area.x, area.z, 'פגע במטרות המטווח החי', 'm1', id);
@@ -113,7 +114,7 @@ function m1Target() {
     return make(LANDMARKS.rangeConsole.x, LANDMARKS.rangeConsole.z, 'הפעל מטווח ירי חי', 'm1', 'range');
   }
 
-  if (runtime.roemRapidActive) {
+  if (runtime.roemRapidActive && allowsFlag('roem_rapid', Boolean(campShoot && campShoot.entityGroup === 'roemTargets'))) {
     const fallback = { x: LANDMARKS.roemPos.x, z: LANDMARKS.roemPos.z - 53 };
     const area = centroidPos(entities?.roemTargets, (t) => !t.hit) || centroidPos(entities?.roemTargets, () => true) || fallback;
     const id = campShoot && campShoot.entityGroup === 'roemTargets' ? camp.runner.mission.id : 'roem_rapid';
@@ -124,7 +125,7 @@ function m1Target() {
     if (node) return make(node.x, node.z, 'כייל צומת בקרה', 'm1', 'roem_rapid');
   }
 
-  if (activeId === 'patrol' || (!save.completed.patrol && runtime.patrolActive)) {
+  if (activeId === 'patrol' || (!camp && !save.completed.patrol && runtime.patrolActive)) {
     const cp = entities?.checkpoints?.[runtime.patrolStep];
     if (cp) return make(cp.pos.x, cp.pos.z, `המשך אל: ${cp.label}`, 'm1', 'patrol');
   }
@@ -143,7 +144,7 @@ function m1Target() {
     if (sh) return make(sh.x, sh.z, 'הרם פגז 155 מ"מ', 'm1', 'doher_salvo');
   }
 
-  if (activeId === 'rokhash_recon' || (save.profile.roleId === 'rokhash' && !save.completed.rokhash_recon && runtime.uavLaunched)) {
+  if (activeId === 'rokhash_recon' || (!camp && save.profile.roleId === 'rokhash' && !save.completed.rokhash_recon && runtime.uavLaunched)) {
     if (runtime.uavLaunched) {
       const tx = nearestPos(entities?.borderTransmitters, (t) => t.isRokhashBorder && !t.destroyed);
       if (tx) return make(tx.x, tx.z, 'השמד משדר אויב', 'm1', 'rokhash_recon');
@@ -152,7 +153,7 @@ function m1Target() {
     if (pad) return make(pad.x, pad.z, 'שגר כטמ"ם "סקיילרק"', 'm1', 'rokhash_recon');
   }
 
-  if (activeId === 'mafik_radar' || (save.profile.roleId === 'mafik' && !save.completed.mafik_radar && runtime.radarWaveActive)) {
+  if (activeId === 'mafik_radar' || (!camp && save.profile.roleId === 'mafik' && !save.completed.mafik_radar && runtime.radarWaveActive)) {
     if (runtime.radarWaveActive) {
       const drone = nearestPos(entities?.drones, (d) => d.isMissionDrone && !d.destroyed && !(typeof d.hp === 'number' && d.hp <= 0));
       if (drone) return make(drone.x, drone.z, 'יירט רחפני תצפית עוינים', 'm1', 'mafik_radar');
