@@ -208,6 +208,44 @@
   left: var(--safe-left);
   width: 250px;
   font-size: 12px;
+  display: none;
+  flex-direction: column;
+  max-height: 60vh;
+  pointer-events: auto;
+  z-index: 13;
+}
+
+#hud-missions.open {
+  display: flex;
+}
+
+#hud-missions .hud-header-row,
+#ability-bar,
+#range-timer-box {
+  flex: none;
+}
+
+#btn-close-missions {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid rgba(200, 209, 163, 0.45);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #f3f1e2;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+#btn-close-missions:hover {
+  background: rgba(201, 59, 50, 0.55);
 }
 
 #missions-list {
@@ -215,6 +253,9 @@
   flex-direction: column;
   gap: 4px;
   font-size: 12px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .mission-item {

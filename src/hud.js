@@ -1,6 +1,6 @@
 import { EVENTS, SHOP_ITEMS, MISSIONS, stripKeyHints } from './config.js';
 import { save, player, runtime, getCurrentRole, getCurrentRank, on } from './state.js';
-import { renderMissionsList, invalidateMissionsListKey } from './hud-missions.js';
+import { renderMissionsList, invalidateMissionsListKey, initMissionsPanel } from './hud-missions.js';
 
 const refs = {};
 function ref(id) {
@@ -320,6 +320,7 @@ export function initHUD() {
   }
 
   invalidateMissionsListKey();
+  initMissionsPanel();
   lastStatusKey = '';
   lastAbilityKey = '';
   lastTimerKey = '';

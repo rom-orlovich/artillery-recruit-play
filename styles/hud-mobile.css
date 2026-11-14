@@ -185,10 +185,6 @@
     white-space: nowrap;
   }
 
-  #hud-missions {
-    display: none;
-  }
-
   #hud-compass {
     top: 4px;
     left: 50%;
@@ -246,4 +242,14 @@
   #toast-banner {
     top: 70px;
   }
+}
+
+body.is-touch #hud-missions {
+  top: 70px;
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+  width: 180px;
+  max-height: 60vh;
+  overflow: hidden;
 }
