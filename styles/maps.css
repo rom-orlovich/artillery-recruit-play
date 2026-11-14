@@ -3,13 +3,24 @@
   padding: 6px;
 }
 
+#full-map-modal .full-map-card {
+  display: grid;
+  grid-template-rows: 50px minmax(0, 1fr) 56px;
+  width: min(1100px, calc(100vw - 16px));
+  height: min(680px, calc(100dvh - 16px));
+  max-width: 100%;
+  max-height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
 #full-map-modal .full-map-shell,
 #full-map-modal.full-map-shell {
   display: flex;
   flex-direction: column;
-  width: min(1100px, calc(100vw - 12px));
-  height: min(680px, calc(100vh - 12px));
-  max-width: 100%;
+  width: min(1100px, calc(100vw - 16px));
+  height: auto;
   max-height: 100%;
   min-height: 0;
   overflow: hidden;
@@ -35,8 +46,9 @@
 }
 
 #full-map-mission-card {
-  flex: 0 0 clamp(195px, 28%, 270px);
+  flex: 0 0 clamp(180px, 28%, 260px);
   min-height: 0;
+  max-height: 100%;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -143,6 +155,7 @@
   flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
+  max-height: 100%;
   display: flex;
   overflow: hidden;
   border-radius: 10px;
@@ -156,6 +169,8 @@
   height: 100%;
   max-width: 100%;
   max-height: 100%;
+  min-width: 0;
+  min-height: 0;
 }
 
 #full-map-zoom-toggle {
@@ -180,12 +195,44 @@
     padding: 4px;
   }
 
+  #full-map-modal .full-map-card {
+    display: grid;
+    grid-template-rows: 48px minmax(0, 1fr) 52px;
+    width: calc(100vw - 12px);
+    height: calc(100dvh - 10px);
+    max-width: 100%;
+    max-height: calc(100dvh - 10px);
+  }
+
   #full-map-modal .full-map-shell,
   #full-map-modal.full-map-shell {
-    width: calc(100vw - 8px);
-    height: calc(100vh - 8px);
-    padding: 6px 8px;
+    width: calc(100vw - 12px);
+    height: auto;
+    max-width: 100%;
+    max-height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    box-sizing: border-box;
+    gap: 4px;
+  }
+
+  #full-map-modal .full-map-side {
+    width: auto;
+    flex: 0 0 auto;
+    flex-direction: row;
+    align-items: center;
     gap: 6px;
+    overflow: visible;
+    padding: 2px 2px 0;
+  }
+
+  #full-map-modal .full-map-hint {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  #full-map-modal .btn-travel {
+    flex: 1 1 0;
   }
 
   #full-map-body {
@@ -193,7 +240,7 @@
   }
 
   #full-map-mission-card {
-    flex: 0 0 clamp(180px, 30%, 230px);
+    flex: 0 0 clamp(170px, 28%, 225px);
     padding: 6px 8px;
     gap: 4px;
   }

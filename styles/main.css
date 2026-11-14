@@ -95,7 +95,6 @@ button {
   height: 2px;
 }
 
-
 .field-label {
   display: block;
   margin-bottom: 6px;
@@ -127,7 +126,7 @@ button {
   min-width: 44px;
   min-height: 44px;
   border-radius: 8px;
-  border: none;
+  border: 1px solid rgba(255, 255, 255, 0.12);
   font-weight: 700;
   font-size: 14px;
   display: inline-flex;
@@ -138,17 +137,88 @@ button {
 
 .btn-primary {
   background: #2c8f9e;
+  border-color: rgba(44, 197, 182, 0.7);
   color: #fff;
 }
 
 .btn-secondary {
-  background: #3d463c;
+  background: #2b343b;
+  border-color: rgba(200, 209, 163, 0.35);
   color: #f3f1e2;
 }
 
 .btn-danger {
   background: #9e332b;
+  border-color: rgba(235, 110, 100, 0.6);
   color: #fff;
+}
+
+.hud-coins-chip {
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffd15c;
+  white-space: nowrap;
+}
+
+.hud-status-chevron {
+  display: none;
+  font-size: 12px;
+  color: #c8d1a3;
+}
+
+body.is-touch #hud-layer #hud-status {
+  min-height: 44px;
+  padding: 6px 10px;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+body.is-touch #hud-layer #hud-status .hud-status-chevron {
+  display: inline-block;
+}
+
+body.is-touch #hud-layer #hud-status.expanded .hud-status-chevron {
+  transform: rotate(180deg);
+}
+
+body.is-touch #hud-layer #hud-status:not(.expanded) > :not(.hud-header-row) {
+  display: none;
+}
+
+body.is-touch #hud-layer #hud-status:not(.expanded) #soldier-title {
+  display: none;
+}
+
+body.is-touch #hud-layer #hud-status .hud-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 32px;
+  margin-bottom: 0;
+}
+
+body.is-touch #hud-layer #hud-status.expanded .hud-header-row {
+  margin-bottom: 6px;
+}
+
+body #hud-layer #toast-banner {
+  position: fixed;
+  top: calc(var(--safe-top) + 50px);
+  bottom: auto;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: min(360px, calc(100vw - 240px));
+  padding: 6px 14px;
+  border-radius: 10px;
+  background: rgba(18, 24, 30, 0.94);
+  border: 1px solid rgba(44, 197, 182, 0.6);
+  color: #f3f1e2;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  pointer-events: none;
+  z-index: 250;
 }
 
 .touch-guide {

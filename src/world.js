@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { player } from './state.js';
+import { player, runtime } from './state.js';
 import { REGIONS } from './world-layout.js';
 import { resetWorldKit, colliders, worldShootables, regionShootables, distanceCulled, createBake } from './world-kit.js';
 import { getTerrainHeight, createTerrainTiles, createBermMesh, smoothstep } from './world-terrain.js';
@@ -31,7 +31,7 @@ const FLAG_SPOTS = [
 ];
 
 const animatedFlags = [];
-const state = { scene: null, camera: null, sky: null, regions: {}, tiles: [], heroes: [], activeRegion: null, lastKey: '' };
+const state = { scene: null, camera: null, renderer: null, sky: null, regions: {}, tiles: [], heroes: [], activeRegion: null, lastKey: '' };
 export const splatInfo = { data: null, size: 0 };
 
 function distanceToRect(x, z, [minX, maxX, minZ, maxZ]) {
@@ -164,6 +164,7 @@ export function createWorld(canvas, isMobile) {
   const renderer = setupRenderer(canvas, isMobile);
   state.scene = scene;
   state.camera = camera;
+  state.renderer = renderer;
   state.sky = createSky(scene, renderer);
   setupShadows(state.sky.sun, isMobile);
 
@@ -231,10 +232,19 @@ function waveFlags(tSec) {
 
 export function updateWorldAnimations(tSec) {
   if (!state.camera) return;
-  const { x, z } = player.pos;
+  const cullPos = runtime.titleActive ? state.camera.position : player.pos;
+  const { x, z } = cullPos;
   updateRegions(x, z);
-  state.sky.update(regionWeights(x, z), state.camera, player.pos);
+  state.sky.update(regionWeights(x, z), state.camera, cullPos);
   waveFlags(tSec);
+  if (typeof window !== 'undefined' && window.__gameDebug) {
+    window.__gameDebug.regionVisibility = {
+      shivta: Boolean(state.regions.shivta?.visible),
+      yoav: Boolean(state.regions.yoav?.visible),
+      line: Boolean(state.regions.line?.visible)
+    };
+    window.__gameDebug.renderCalls = state.renderer?.info?.render?.calls ?? 0;
+  }
 }
 
 export function travelTo(regionId) {

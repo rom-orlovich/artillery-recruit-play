@@ -2,6 +2,9 @@ import { EVENTS, SHOP_ITEMS, stripKeyHints } from './config.js';
 import { save, player, runtime, getCurrentRole, getCurrentRank, on } from './state.js';
 import { renderMissionsList, invalidateMissionsListKey, initMissionsPanel } from './hud-missions.js';
 import { getCurrentTarget } from './current-target.js';
+import { ensureHitMarker, showHitMarker, hideRadio, showRadio, showToast } from './hud-feedback.js';
+
+export { showHitMarker, hideRadio, showRadio, showToast };
 
 const refs = {};
 function ref(id) {
@@ -9,8 +12,27 @@ function ref(id) {
   return refs[id];
 }
 
-let toastTimeout = null;
-let radioTimeout = null;
+const ACTION_LABELS = {
+  pickup_sandbag: 'הרם שק',
+  drop_sandbag: 'הנח שק',
+  campaign_pickup: 'הרם פריט',
+  campaign_drop: 'הנח פריט',
+  campaign_interact: 'בצע פעולה',
+  shop: 'אפסנאות',
+  clinic: 'מרפאה',
+  barracks: 'מסדר',
+  start_range: 'מטווח',
+  pickup_shell: 'הרם פגז',
+  load_shell: 'טען פגז',
+  fire_doher: 'ירי סוללתי',
+  calibrate_roem: 'כייל צומת',
+  launch_uav: 'שגר כטמ"ם',
+  calibrate_radar: 'כייל מכ"ם',
+  talk: 'דבר',
+  dialogue: 'דבר',
+  npc: 'דבר'
+};
+
 let listenersBound = false;
 let lastNearby = null;
 
@@ -18,9 +40,20 @@ let lastStatusKey = '';
 let lastAbilityKey = '';
 let lastTimerKey = '';
 let lastCarryKey = '';
-let lastInteractKey = '';
+let lastInteractKey = null;
 let lastChapterKey = '';
 let lastObjectiveKey = '';
+
+function getContextActionLabel(nearby) {
+  if (!nearby) return '';
+  if (nearby.shortLabel) return stripKeyHints(nearby.shortLabel).trim();
+  if (nearby.type && ACTION_LABELS[nearby.type]) return ACTION_LABELS[nearby.type];
+  const raw = stripKeyHints(nearby.label || '').replace(/^\[[^\]]+\]\s*/, '').trim();
+  if (!raw) return 'פעולה';
+  const head = raw.split(/[—\-]/)[0].trim();
+  const words = head.split(/\s+/).filter(Boolean);
+  return words.slice(0, 2).join(' ') || 'פעולה';
+}
 
 function syncStatusPanel() {
   const role = getCurrentRole();
@@ -80,64 +113,6 @@ function syncStatusPanel() {
   }
 }
 
-export function hideRadio() {
-  clearTimeout(radioTimeout);
-  radioTimeout = null;
-  const box = ref('radio-bar');
-  const speakerEl = ref('radio-speaker');
-  const textEl = ref('radio-text');
-  if (box) {
-    box.classList.add('hidden');
-    box.style.display = 'none';
-  }
-  if (speakerEl) speakerEl.textContent = '';
-  if (textEl) textEl.textContent = '';
-}
-
-function ensureVisible(node, fallbackDisplay = 'block') {
-  if (!node) return;
-  node.classList.remove('hidden');
-  node.style.display = '';
-  if (typeof window !== 'undefined' && window.getComputedStyle(node).display === 'none') {
-    node.style.display = fallbackDisplay;
-  }
-}
-
-export function showRadio(payload = {}) {
-  const speaker = typeof payload?.speaker === 'string' ? payload.speaker.trim() : '';
-  const rawText = typeof payload?.text === 'string'
-    ? payload.text.trim()
-    : (typeof payload?.message === 'string' ? payload.message.trim() : '');
-  const text = stripKeyHints(rawText).trim();
-
-  if (!text) {
-    hideRadio();
-    return;
-  }
-
-  const box = ref('radio-bar');
-  const speakerEl = ref('radio-speaker');
-  const textEl = ref('radio-text');
-
-  ensureVisible(box, 'flex');
-  if (speakerEl) {
-    speakerEl.textContent = speaker;
-    ensureVisible(speakerEl, 'inline');
-  }
-  if (textEl) {
-    textEl.textContent = text;
-    ensureVisible(textEl, 'inline');
-  }
-
-  const durationMs = typeof payload?.durationMs === 'number'
-    ? payload.durationMs
-    : (typeof payload?.duration === 'number' ? payload.duration : 4500);
-  clearTimeout(radioTimeout);
-  if (durationMs > 0) {
-    radioTimeout = setTimeout(hideRadio, durationMs);
-  }
-}
-
 function updateObjectivePill() {
   const textEl = ref('objective-text');
   const distEl = ref('objective-distance');
@@ -155,18 +130,6 @@ function updateObjectivePill() {
     const distText = target ? `${Math.max(0, Math.round(Math.hypot(target.x - player.pos.x, target.z - player.pos.z)))}m` : '';
     if (distEl.textContent !== distText) distEl.textContent = distText;
   }
-}
-
-export function showToast(message, duration = 3200) {
-  const banner = ref('toast-banner');
-  const cleaned = stripKeyHints(message || '').trim();
-  if (!banner || !cleaned) return;
-  banner.textContent = cleaned;
-  banner.classList.remove('hidden');
-  clearTimeout(toastTimeout);
-  toastTimeout = setTimeout(() => {
-    banner.classList.add('hidden');
-  }, duration);
 }
 
 export function updateHUD(nearbyInteraction) {
@@ -231,33 +194,59 @@ export function updateHUD(nearbyInteraction) {
       } else if (carryKey === 'shell') {
         carryEl.textContent = stripKeyHints('💣 נושא פגז 155 מ"מ — טען לסדן תומ"ת "דוהר" [E]');
         carryEl.classList.remove('hidden');
+      } else if (carryKey) {
+        carryEl.textContent = stripKeyHints('📦 נושא ציוד — הבא לנקודת הפריקה [E]');
+        carryEl.classList.remove('hidden');
       } else {
         carryEl.classList.add('hidden');
       }
     }
   }
 
-  const interactKey = nearbyInteraction && nearbyInteraction.label ? stripKeyHints(nearbyInteraction.label).trim() : '';
+  const cleanPrompt = nearbyInteraction?.label ? stripKeyHints(nearbyInteraction.label).trim() : '';
+  const interactKey = nearbyInteraction ? `${nearbyInteraction.type || ''}|${cleanPrompt}` : '';
   if (interactKey !== lastInteractKey) {
     lastInteractKey = interactKey;
     const interactEl = ref('interact-prompt');
     if (interactEl) {
-      if (interactKey) {
-        interactEl.textContent = interactKey;
+      if (cleanPrompt) {
+        interactEl.textContent = cleanPrompt;
         interactEl.classList.remove('hidden');
       } else {
         interactEl.classList.add('hidden');
+      }
+    }
+    const btnInteract = ref('btn-touch-interact');
+    if (btnInteract) {
+      const actionLabel = getContextActionLabel(nearbyInteraction);
+      if (actionLabel) {
+        btnInteract.textContent = actionLabel;
+        btnInteract.classList.remove('hidden');
+        btnInteract.classList.add('pulse');
+      } else {
+        btnInteract.textContent = 'פעולה';
+        btnInteract.classList.add('hidden');
+        btnInteract.classList.remove('pulse');
       }
     }
   }
 }
 
 export function initHUD() {
+  ensureHitMarker();
   if (!listenersBound) {
     listenersBound = true;
     const syncAll = () => {
       updateHUD(lastNearby);
     };
+    const statusEl = ref('hud-status');
+    if (statusEl) {
+      statusEl.addEventListener('click', (e) => {
+        if (e.target && e.target.closest && e.target.closest('button')) return;
+        const expanded = statusEl.classList.toggle('expanded');
+        statusEl.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+      });
+    }
     on(EVENTS.STATE_CHANGED, syncAll);
     on(EVENTS.ROLE_CHANGED, syncAll);
     on(EVENTS.ENLIST_COMPLETED, syncAll);
@@ -265,24 +254,27 @@ export function initHUD() {
     on(EVENTS.GEAR_PURCHASED, syncAll);
     on(EVENTS.PLAYER_DAMAGED, syncAll);
     on(EVENTS.PLAYER_RESPAWNED, syncAll);
+    on('combat:hit', showHitMarker);
+    on(EVENTS.RANGE_HIT, showHitMarker);
+    on(EVENTS.DRONE_DESTROYED, showHitMarker);
     on(EVENTS.TOAST, (payload) => {
-      showToast(payload?.message, payload?.duration || 3200);
+      showToast(payload?.message, payload?.duration || 2500);
     });
     on(EVENTS.MISSION_COMPLETED, (payload) => {
       syncAll();
       const title = payload?.title || 'משימה';
       const rewardText = payload?.moneyReward ? ` (+${payload.moneyReward} ₪, +${payload.scoreReward || 0} נק׳)` : '';
-      showToast(`✅ הושלמה: ${title}${rewardText}`, 4000);
+      showToast(`✅ הושלמה: ${title}${rewardText}`, 2500);
     });
     on(EVENTS.RANK_PROMOTED, (payload) => {
       syncAll();
       const rankName = payload?.newRank?.name || '';
       const bonus = payload?.bonusMoney ? ` (+${payload.bonusMoney} ₪)` : '';
-      showToast(`🎖️ קידום לדרגת ${rankName}!${bonus}`, 4500);
+      showToast(`🎖️ קידום לדרגת ${rankName}!${bonus}`, 2500);
     });
     on(EVENTS.CEREMONY_UNLOCKED, (payload) => {
       syncAll();
-      if (payload?.title) showToast(`🪖 ${payload.title}`, 4800);
+      if (payload?.title) showToast(`🪖 ${payload.title}`, 2500);
     });
     on('ui:radio', (payload) => {
       showRadio(payload);
@@ -298,7 +290,7 @@ export function initHUD() {
         badge.classList.remove('hidden');
       }
       if (payload?.title) {
-        showToast(`📖 ${payload.title}`, 4000);
+        showToast(`📖 ${payload.title}`, 2500);
       }
       syncStatusPanel();
     });
@@ -306,7 +298,7 @@ export function initHUD() {
       const title = payload?.title || payload?.name || 'הישג חדש';
       const reward = payload?.rewardCoins || payload?.moneyReward || 0;
       const suffix = reward ? ` (+${reward} ₪)` : '';
-      showToast(`🏆 הישג נפתח: ${title}${suffix}`, 4500);
+      showToast(`🏆 הישג נפתח: ${title}${suffix}`, 2500);
     });
     on('mission:objective_updated', () => {
       updateObjectivePill();
@@ -320,7 +312,7 @@ export function initHUD() {
   lastAbilityKey = '';
   lastTimerKey = '';
   lastCarryKey = '';
-  lastInteractKey = '';
+  lastInteractKey = null;
   lastChapterKey = '';
   lastObjectiveKey = '';
   hideRadio();

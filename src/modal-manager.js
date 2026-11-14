@@ -1,64 +1,77 @@
-import { save, player, runtime, writeSave, resetSave } from './state.js';
+import { runtime, resetSave } from './state.js';
 import { resetInputState, releaseGameLock } from './controls.js';
 import { showToast } from './hud.js';
 import { initEnlistment, openRoleSelectorModal } from './enlistment.js';
 import { openShop, closeShop } from './shop.js';
 import { openCampaignModal, closeCampaignModal } from './campaign.js';
+import { initSettings, openSettingsModal, closeSettingsModal } from './settings.js';
+import { appContext } from './main.js';
+import {
+  MODAL_IDS,
+  el,
+  isOpen,
+  setModalVisible,
+  isAnyModalOpen,
+  hasUsableSave,
+  stopTitlePan,
+  startTitlePan,
+  requestPlayFullscreen,
+  savePlayerPosition,
+  restorePlayerPosition
+} from './modal-helpers.js';
 
-const MODAL_IDS = [
-  'title-screen',
-  'enlist-modal',
-  'pause-modal',
-  'shop-modal',
-  'campaign-modal',
-  'fire-map-modal',
-  'discharge-modal',
-  'death-modal'
-];
+export { setModalVisible, isAnyModalOpen, savePlayerPosition, restorePlayerPosition };
 
-const els = {};
 let startGameFn = null;
 let onResetFn = null;
 let bound = false;
 let confirmRoleBound = false;
+let extraBound = false;
 
-function el(id) {
-  if (!els[id]) els[id] = document.getElementById(id);
-  return els[id];
+function closeFullMap() {
+  setModalVisible('full-map-modal', false);
+  runtime.fullMapOpen = false;
+  runtime.modalOpen = false;
+  if (startGameFn) startGameFn();
 }
 
-function isOpen(id) {
-  const node = el(id);
-  return Boolean(node && !node.classList.contains('hidden'));
-}
-
-function lockLandscape() {
-  try {
-    const orient = screen && screen.orientation;
-    if (orient && typeof orient.lock === 'function') {
-      const res = orient.lock('landscape');
-      if (res && typeof res.catch === 'function') res.catch(() => {});
+function openFullMapFromPause() {
+  setModalVisible('pause-modal', false);
+  runtime.paused = false;
+  runtime.modalOpen = false;
+  runtime.isPlaying = true;
+  const minimapMod = appContext && appContext.modules && appContext.modules.minimap;
+  if (minimapMod && typeof minimapMod.openFullMap === 'function') {
+    minimapMod.openFullMap();
+  } else {
+    setModalVisible('full-map-modal', true);
+    if (minimapMod && typeof minimapMod.drawFullMap === 'function') {
+      minimapMod.drawFullMap();
     }
-  } catch {}
-}
-
-function requestPlayFullscreen() {
-  try {
-    const root = document.documentElement;
-    if (root && !document.fullscreenElement) {
-      const req = root.requestFullscreen || root.webkitRequestFullscreen;
-      if (typeof req === 'function') {
-        const res = req.call(root);
-        if (res && typeof res.then === 'function') {
-          res.then(lockLandscape, lockLandscape);
-          return;
-        }
-      }
-    }
-    lockLandscape();
-  } catch {
-    lockLandscape();
   }
+  runtime.modalOpen = true;
+  runtime.fullMapOpen = true;
+}
+
+function openTitleModal(showContinue) {
+  runtime.titleActive = true;
+  runtime.isPlaying = false;
+  const contBtn = el('btn-continue');
+  const newBtn = el('btn-new-game');
+  el('title-new-confirm')?.classList.add('hidden');
+
+  if (contBtn) {
+    contBtn.classList.toggle('hidden', !showContinue);
+    contBtn.classList.toggle('btn-primary', showContinue);
+    contBtn.classList.toggle('btn-secondary', !showContinue);
+  }
+  if (newBtn) {
+    newBtn.classList.toggle('btn-primary', !showContinue);
+    newBtn.classList.toggle('btn-secondary', showContinue);
+    newBtn.textContent = 'התגייס לחיל התותחנים ◀';
+  }
+  setModalVisible('title-screen', true);
+  startTitlePan();
 }
 
 export function initModalManager(ctx) {
@@ -66,6 +79,10 @@ export function initModalManager(ctx) {
   onResetFn = typeof ctx.onReset === 'function' ? ctx.onReset : null;
   for (const id of MODAL_IDS) el(id);
   el('reset-confirm');
+  initSettings(() => {
+    if (startGameFn) startGameFn();
+  });
+
   if (!confirmRoleBound) {
     const confirmRoleBtn = el('btn-confirm-role');
     if (confirmRoleBtn) {
@@ -73,31 +90,44 @@ export function initModalManager(ctx) {
       confirmRoleBound = true;
     }
   }
-}
 
-export function setModalVisible(id, visible) {
-  const node = el(id);
-  if (!node) return;
-  node.classList.toggle('hidden', !visible);
-  node.style.display = visible ? 'flex' : 'none';
-}
+  if (!extraBound) {
+    extraBound = true;
+    el('btn-close-pause')?.addEventListener('click', () => {
+      requestPlayFullscreen();
+      closeAllModals();
+    });
+    el('btn-close-full-map')?.addEventListener('click', closeFullMap);
+    el('btn-full-map-done')?.addEventListener('click', closeFullMap);
+    el('btn-campaign-done')?.addEventListener('click', () => {
+      closeCampaignModal();
+      if (startGameFn) startGameFn();
+    });
+    el('btn-fire-map-done')?.addEventListener('click', () => {
+      setModalVisible('fire-map-modal', false);
+      runtime.fireMapOpen = false;
+      if (startGameFn) startGameFn();
+    });
+    el('btn-close-discharge')?.addEventListener('click', () => {
+      setModalVisible('discharge-modal', false);
+      runtime.dischargeModalOpen = false;
+      if (startGameFn) startGameFn();
+    });
+    el('btn-close-death')?.addEventListener('click', () => {
+      el('btn-respawn')?.click();
+    });
 
-export function isAnyModalOpen() {
-  return MODAL_IDS.some((id) => isOpen(id));
-}
-
-export function savePlayerPosition() {
-  save.playerPos = { x: player.pos.x, z: player.pos.z, yaw: player.yaw };
-  writeSave({ immediate: true });
-}
-
-export function restorePlayerPosition() {
-  const pp = save.playerPos;
-  if (!pp || typeof pp.x !== 'number') return;
-  player.pos.x = pp.x;
-  player.pos.z = pp.z;
-  player.yaw = pp.yaw || 0;
-  player.pitch = 0;
+    const closeEnlist = () => {
+      setModalVisible('enlist-modal', false);
+      runtime.enlistOpen = false;
+      openTitleModal(hasUsableSave());
+    };
+    el('btn-close-enlist')?.addEventListener('click', closeEnlist);
+    el('btn-close-enlist-gibbush')?.addEventListener('click', closeEnlist);
+    document.querySelectorAll('.enlist-close-btn').forEach((btn) => {
+      btn.addEventListener('click', closeEnlist);
+    });
+  }
 }
 
 export function openPauseModal() {
@@ -108,18 +138,22 @@ export function openPauseModal() {
   runtime.modalOpen = true;
   runtime.paused = true;
   runtime.isPlaying = false;
+  el('reset-confirm')?.classList.add('hidden');
   setModalVisible('pause-modal', true);
 }
 
 export function closeAllModals() {
+  stopTitlePan();
   for (const id of MODAL_IDS) setModalVisible(id, false);
-  const confirm = el('reset-confirm');
-  if (confirm) confirm.classList.add('hidden');
+  el('reset-confirm')?.classList.add('hidden');
+  el('title-new-confirm')?.classList.add('hidden');
   runtime.modalOpen = false;
   runtime.shopOpen = false;
   runtime.enlistOpen = false;
   runtime.campaignModalOpen = false;
   runtime.fireMapOpen = false;
+  runtime.fullMapOpen = false;
+  runtime.settingsOpen = false;
   runtime.dischargeModalOpen = false;
   runtime.paused = false;
   runtime.titleActive = false;
@@ -145,11 +179,33 @@ export function openModalByName(name) {
     openCampaignModal();
     return;
   }
+  if (name === 'settings') {
+    savePlayerPosition();
+    resetInputState();
+    openSettingsModal();
+    return;
+  }
+  if (name === 'map') {
+    savePlayerPosition();
+    resetInputState();
+    openFullMapFromPause();
+    return;
+  }
   throw new Error(`unknown modal "${name}"`);
 }
 
 export function handleEscapeKey() {
   if (isOpen('death-modal')) return;
+  if (isOpen('settings-modal')) {
+    closeSettingsModal(() => {
+      if (startGameFn) startGameFn();
+    });
+    return;
+  }
+  if (isOpen('full-map-modal')) {
+    closeFullMap();
+    return;
+  }
   if (isOpen('discharge-modal')) {
     setModalVisible('discharge-modal', false);
     runtime.dischargeModalOpen = false;
@@ -184,25 +240,47 @@ export function handleEscapeKey() {
 function performReset() {
   resetSave();
   if (onResetFn) onResetFn();
-  showToast('ההתקדמות אופסה', 2600);
+  showToast('ההתקדמות אופסה', 2500);
   closeAllModals();
+  initEnlistment(startGameFn);
+}
+
+function startFreshEnlistment() {
+  stopTitlePan();
+  requestPlayFullscreen();
+  setModalVisible('title-screen', false);
+  el('title-new-confirm')?.classList.add('hidden');
+  runtime.titleActive = false;
+  resetSave();
+  if (onResetFn) onResetFn();
   initEnlistment(startGameFn);
 }
 
 export function bindTitleScreen() {
   const newBtn = el('btn-new-game');
   const contBtn = el('btn-continue');
+  const confirmBox = el('title-new-confirm');
+  const confirmBtn = el('btn-title-new-confirm');
+  const cancelBtn = el('btn-title-new-cancel');
+
   if (newBtn) {
     newBtn.addEventListener('click', () => {
-      requestPlayFullscreen();
-      setModalVisible('title-screen', false);
-      runtime.titleActive = false;
-      resetSave();
-      initEnlistment(startGameFn);
+      if (contBtn && !contBtn.classList.contains('hidden') && confirmBox) {
+        confirmBox.classList.remove('hidden');
+        return;
+      }
+      startFreshEnlistment();
     });
+  }
+  if (confirmBtn) {
+    confirmBtn.addEventListener('click', startFreshEnlistment);
+  }
+  if (cancelBtn && confirmBox) {
+    cancelBtn.addEventListener('click', () => confirmBox.classList.add('hidden'));
   }
   if (contBtn) {
     contBtn.addEventListener('click', () => {
+      stopTitlePan();
       requestPlayFullscreen();
       setModalVisible('title-screen', false);
       runtime.titleActive = false;
@@ -213,39 +291,51 @@ export function bindTitleScreen() {
 }
 
 export function bindPauseMenu() {
-  const playBtn = el('btn-play');
-  if (playBtn) {
-    playBtn.addEventListener('click', () => {
-      requestPlayFullscreen();
-      closeAllModals();
+  el('btn-play')?.addEventListener('click', () => {
+    requestPlayFullscreen();
+    closeAllModals();
+  });
+  el('btn-pause-campaign')?.addEventListener('click', () => {
+    setModalVisible('pause-modal', false);
+    runtime.modalOpen = false;
+    runtime.paused = false;
+    openCampaignModal();
+  });
+  el('btn-pause-map')?.addEventListener('click', openFullMapFromPause);
+  el('btn-pause-shop')?.addEventListener('click', () => {
+    setModalVisible('pause-modal', false);
+    runtime.modalOpen = false;
+    runtime.paused = false;
+    openShop();
+  });
+  el('btn-pause-settings')?.addEventListener('click', () => {
+    setModalVisible('pause-modal', false);
+    openSettingsModal({ returnTo: 'pause' });
+  });
+  el('btn-pause-title')?.addEventListener('click', () => {
+    for (const id of MODAL_IDS) setModalVisible(id, false);
+    el('reset-confirm')?.classList.add('hidden');
+    runtime.modalOpen = false;
+    runtime.paused = false;
+    runtime.isPlaying = false;
+    resetInputState();
+    releaseGameLock();
+    openTitleModal(hasUsableSave());
+  });
+  el('btn-change-role')?.addEventListener('click', () => {
+    setModalVisible('pause-modal', false);
+    runtime.modalOpen = false;
+    openRoleSelectorModal(() => {
+      if (startGameFn) startGameFn();
     });
-  }
-  const changeBtn = el('btn-change-role');
-  if (changeBtn) {
-    changeBtn.addEventListener('click', () => {
-      setModalVisible('pause-modal', false);
-      runtime.modalOpen = false;
-      openRoleSelectorModal(() => {
-        if (startGameFn) startGameFn();
-      });
-    });
-  }
-  const resetBtn = el('btn-reset');
-  if (resetBtn) {
-    resetBtn.addEventListener('click', () => {
-      const confirm = el('reset-confirm');
-      if (confirm) confirm.classList.remove('hidden');
-    });
-  }
-  const cancelBtn = el('btn-reset-cancel');
-  if (cancelBtn) {
-    cancelBtn.addEventListener('click', () => {
-      const confirm = el('reset-confirm');
-      if (confirm) confirm.classList.add('hidden');
-    });
-  }
-  const confirmBtn = el('btn-reset-confirm');
-  if (confirmBtn) confirmBtn.addEventListener('click', () => performReset());
+  });
+  el('btn-reset')?.addEventListener('click', () => {
+    el('reset-confirm')?.classList.remove('hidden');
+  });
+  el('btn-reset-cancel')?.addEventListener('click', () => {
+    el('reset-confirm')?.classList.add('hidden');
+  });
+  el('btn-reset-confirm')?.addEventListener('click', performReset);
 }
 
 export function bindLifecycleHandlers() {
@@ -259,10 +349,10 @@ export function bindLifecycleHandlers() {
 }
 
 export function showStartScreen(hasSavedGame) {
-  runtime.titleActive = true;
-  runtime.isPlaying = false;
-  const contBtn = el('btn-continue');
-  if (contBtn) contBtn.classList.toggle('hidden', !hasSavedGame);
-  setModalVisible('title-screen', true);
-  if (!hasSavedGame) initEnlistment(startGameFn);
+  const showContinue = Boolean(hasSavedGame && hasUsableSave());
+  if (!showContinue) {
+    openTitleModal(false);
+    return;
+  }
+  openTitleModal(true);
 }

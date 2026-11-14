@@ -310,6 +310,72 @@ export function updateCampaignObjectives(dt, entitiesApi = null) {
   if (nextStepSig !== prevStepSig) writeSave();
 }
 
+export function findNearbyCampaignInteraction() {
+  const runner = activeMissionRunner;
+  if (!runner || runner.completed) return null;
+  const activeLeaves = runner.states.map(getLeafState).filter(Boolean);
+  for (const leaf of activeLeaves) {
+    const d = leaf.def;
+    const pts = d.points || [];
+    if (d.type === 'interact') {
+      const repeatable = pts.length < d.targetCount;
+      for (let i = 0; i < pts.length; i++) {
+        const pt = pts[i];
+        const ptId = String(pt.id ?? `pt_${i}`);
+        if (distXZ(player.pos, pt) > (pt.radius || 4.5)) continue;
+        if (leaf.visited.has(ptId) && !repeatable) continue;
+        const targetLabel = pt.label || d.label || 'פעולה';
+        return {
+          type: pt.interactType || d.interactType || 'campaign_interact',
+          shortLabel: pt.shortLabel || d.shortLabel || 'בצע פעולה',
+          label: `[E] ${targetLabel}`
+        };
+      }
+    } else if (d.type === 'carry') {
+      const pickup = pts[0];
+      const dropoff = pts[1];
+      const itemType = d.carryItem || 'ammoCrate';
+      const inPickup = Boolean(pickup && distXZ(player.pos, pickup) <= (pickup.radius || 4.5));
+      const inDrop = Boolean(dropoff && distXZ(player.pos, dropoff) <= (dropoff.radius || 5.0));
+      if (!player.carryingType && inPickup) {
+        const isSandbag = itemType === 'sandbag';
+        const isShell = itemType === 'shell';
+        return {
+          type: isSandbag ? 'pickup_sandbag' : isShell ? 'pickup_shell' : 'campaign_pickup',
+          shortLabel: isSandbag ? 'הרם שק' : isShell ? 'הרם פגז' : 'הרם פריט',
+          label: `[E] ${pickup.label || (isSandbag ? 'הרם שק חול' : isShell ? 'הרם פגז' : 'הרם פריט')}`
+        };
+      }
+      if (player.carryingType && inDrop) {
+        const isSandbag = itemType === 'sandbag' || player.carryingType === 'sandbag';
+        const isShell = itemType === 'shell' || player.carryingType === 'shell';
+        return {
+          type: isSandbag ? 'drop_sandbag' : isShell ? 'load_shell' : 'campaign_drop',
+          shortLabel: isSandbag ? 'הנח שק' : isShell ? 'טען פגז' : 'הנח פריט',
+          label: `[E] ${dropoff.label || (isSandbag ? 'הנח שק חול' : isShell ? 'טען פגז' : 'הנח פריט')}`
+        };
+      }
+    }
+  }
+  return null;
+}
+
+export function getActiveCarryPoints() {
+  const runner = activeMissionRunner;
+  if (!runner || runner.completed) return null;
+  const activeLeaves = runner.states.map(getLeafState).filter(Boolean);
+  for (const leaf of activeLeaves) {
+    if (leaf.def.type === 'carry' && leaf.def.points?.length >= 2) {
+      return {
+        pickup: { x: leaf.def.points[0].x, z: leaf.def.points[0].z, label: leaf.def.points[0].label || '' },
+        dropoff: { x: leaf.def.points[1].x, z: leaf.def.points[1].z, label: leaf.def.points[1].label || '' },
+        carryItem: leaf.def.carryItem || 'ammoCrate'
+      };
+    }
+  }
+  return null;
+}
+
 export function handleCampaignInteract(entitiesApi = null) {
   const runner = activeMissionRunner;
   if (!runner || runner.completed) return false;

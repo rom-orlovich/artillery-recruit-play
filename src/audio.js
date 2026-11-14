@@ -2,6 +2,8 @@ import { EVENTS } from './config.js';
 import { on } from './state.js';
 
 let audioCtx = null;
+let masterGain = null;
+let masterVolume = 0.8;
 let noiseBuffer = null;
 let initialized = false;
 
@@ -22,6 +24,9 @@ export function ensureAudio() {
       const Ctx = window.AudioContext || window.webkitAudioContext;
       if (!Ctx) return null;
       audioCtx = new Ctx();
+      masterGain = audioCtx.createGain();
+      masterGain.gain.value = masterVolume;
+      masterGain.connect(audioCtx.destination);
       noiseBuffer = buildNoiseBuffer(audioCtx);
     }
     if (audioCtx.state === 'suspended') {
@@ -31,6 +36,20 @@ export function ensureAudio() {
   } catch {
     return null;
   }
+}
+
+export function setVolume(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return masterVolume;
+  masterVolume = Math.max(0, Math.min(1, num));
+  if (masterGain) {
+    masterGain.gain.value = masterVolume;
+  }
+  return masterVolume;
+}
+
+export function getVolume() {
+  return masterGain ? masterGain.gain.value : masterVolume;
 }
 
 function playTone(type, startFreq, endFreq, duration, gainPeak = 0.2, delay = 0) {
@@ -48,7 +67,7 @@ function playTone(type, startFreq, endFreq, duration, gainPeak = 0.2, delay = 0)
   gain.gain.linearRampToValueAtTime(gainPeak, t + 0.008);
   gain.gain.exponentialRampToValueAtTime(0.0001, t + duration);
   osc.connect(gain);
-  gain.connect(ctx.destination);
+  gain.connect(masterGain || ctx.destination);
   osc.start(t);
   osc.stop(t + duration + 0.02);
 }
@@ -67,7 +86,7 @@ function playNoise(filterType, filterFreq, duration, gainPeak = 0.25, delay = 0)
   gain.gain.exponentialRampToValueAtTime(0.0001, t + duration);
   src.connect(filter);
   filter.connect(gain);
-  gain.connect(ctx.destination);
+  gain.connect(masterGain || ctx.destination);
   src.start(t);
   src.stop(t + duration + 0.02);
 }
@@ -116,6 +135,9 @@ export function playRadarPingSound() {
 export function initAudio() {
   if (initialized) return;
   initialized = true;
+  if (typeof window !== 'undefined') {
+    window.addEventListener('pointerdown', () => ensureAudio(), { once: true, passive: true });
+  }
   on(EVENTS.WEAPON_FIRED, () => playShootSound());
   on(EVENTS.RANGE_HIT, () => playTargetHitSound());
   on(EVENTS.DRONE_DESTROYED, () => playExplosionSound());

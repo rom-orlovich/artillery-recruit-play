@@ -152,6 +152,7 @@ function closeFullMap() {
   stopLoop();
   resetRouteCache();
   setModalVisible(MODAL_ID, false);
+  runtime.fullMapOpen = false;
   closeAllModals();
 }
 
@@ -162,6 +163,7 @@ export function openFullMap() {
   resetInputState();
   releaseGameLock();
   runtime.modalOpen = true;
+  runtime.fullMapOpen = true;
   zoomMode = 'fit';
   resetRouteCache();
   syncToggleButton(zoomMode);

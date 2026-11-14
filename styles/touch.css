@@ -90,9 +90,30 @@
   touch-action: none;
 }
 
+.touch-btn.hidden {
+  display: none !important;
+}
+
 .touch-btn.active {
   background: rgba(44, 197, 182, 0.85);
   border-color: #fff;
+}
+
+@keyframes touchInteractPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(255, 209, 92, 0.7);
+    border-color: #ffd15c;
+  }
+  50% {
+    box-shadow: 0 0 12px 3px rgba(255, 209, 92, 0.9);
+    border-color: #fff3b0;
+  }
+}
+
+.touch-btn.pulse {
+  background: rgba(180, 128, 28, 0.9);
+  color: #fffbe6;
+  animation: touchInteractPulse 1.2s ease-in-out infinite;
 }
 
 .touch-fire {
@@ -112,6 +133,21 @@
   height: 48px;
   pointer-events: auto;
   font-size: 18px;
+}
+
+body.left-handed #joy-zone {
+  left: auto;
+  right: var(--safe-right);
+}
+
+body.left-handed .touch-actions-grid {
+  right: auto;
+  left: var(--safe-left);
+}
+
+body.left-handed #look-zone {
+  right: auto;
+  left: 0;
 }
 
 @media (max-height: 380px) {
@@ -142,10 +178,12 @@
     min-width: 44px;
     min-height: 44px;
     height: 44px;
-    padding: 0 4px;
+    padding: 0 6px;
     font-size: 12px;
     border-radius: 10px;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .touch-pause {
@@ -156,5 +194,15 @@
     min-width: 44px;
     min-height: 44px;
     font-size: 16px;
+  }
+
+  body.left-handed #joy-zone {
+    left: auto;
+    right: 8px;
+  }
+
+  body.left-handed .touch-actions-grid {
+    right: auto;
+    left: 8px;
   }
 }

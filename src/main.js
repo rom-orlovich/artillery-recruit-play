@@ -2,7 +2,7 @@ import { EVENTS, isTouchDevice, SAVE_KEY } from './config.js';
 import * as configMod from './config.js';
 import * as stateMod from './state.js';
 import { save, player, runtime, syncDerivedStats, emit, getCurrentRole, getCurrentRank } from './state.js';
-import { createWorld, updateWorldAnimations } from './world.js';
+import { createWorld, updateWorldAnimations, getTerrainHeight } from './world.js';
 import { initControls, requestGameLock, releaseGameLock, updatePlayerMovement, resetInputState } from './controls.js';
 import {
   initModalManager,
@@ -19,6 +19,7 @@ import {
 import { initWaypointCompass, updateWaypointCompass, refreshHudRects } from './waypoint-compass.js';
 import { installDebugHook } from './debug-hook.js';
 import { bindTargetEntities } from './current-target.js';
+import { findNearbyCampaignInteraction, getActiveCarryPoints } from './campaign-objectives.js';
 
 export const appContext = {
   scene: null,
@@ -292,7 +293,7 @@ async function bootstrap() {
   });
 
   installDebugHook({
-    modules: { state: stateMod, config: configMod, campaign: campaignMod, entities: entitiesMod, combat: combatMod, missions: missionsMod, hud: hudMod },
+    modules: { state: stateMod, config: configMod, audio: audioMod, campaign: campaignMod, entities: entitiesMod, combat: combatMod, missions: missionsMod, hud: hudMod },
     camera,
     entitiesApi,
     onInteract,
@@ -301,6 +302,18 @@ async function bootstrap() {
     setModalVisible,
     syncFallbackHUD
   });
+
+  if (typeof window !== 'undefined' && window.__gameDebug) {
+    window.__gameDebug.getAudioVolume = () => audioMod?.getVolume?.() ?? null;
+    window.__gameDebug.getTouchSprint = () => Boolean(document.getElementById('btn-touch-sprint')?.classList.contains('active'));
+    window.__gameDebug.getPlayerPos = () => ({ x: player.pos.x, y: player.pos.y, z: player.pos.z, carryingType: player.carryingType });
+    window.__gameDebug.setPlayerPos = (x, z) => {
+      player.pos.x = x;
+      player.pos.z = z;
+      player.pos.y = getTerrainHeight(x, z);
+    };
+    window.__gameDebug.getCampaignCarryPoints = () => getActiveCarryPoints();
+  }
 
   window.addEventListener('resize', () => {
     updateTouchVisibility();
@@ -338,7 +351,7 @@ async function bootstrap() {
       entitiesMod?.updateEntities?.(dt, tSec, (dmg) => combatMod?.applyDamage?.(dmg, entitiesApi));
       missionsMod?.updateMissions?.(dt, entitiesApi);
       campaignMod?.updateCampaignObjectives?.(dt, entitiesApi);
-      const nearby = missionsMod?.findNearbyInteraction?.(entitiesApi) || null;
+      const nearby = missionsMod?.findNearbyInteraction?.(entitiesApi) || findNearbyCampaignInteraction() || null;
       hudMod?.updateHUD?.(nearby);
       minimapMod?.drawMinimap?.(entitiesApi);
     }

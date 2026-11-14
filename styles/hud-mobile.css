@@ -1,3 +1,40 @@
+#hit-marker {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  width: 28px;
+  height: 28px;
+  transform: translate(-50%, -50%) rotate(45deg);
+  pointer-events: none;
+  z-index: 25;
+  opacity: 0;
+  transition: opacity 0.08s ease;
+}
+
+#hit-marker.active {
+  opacity: 1;
+}
+
+#hit-marker::before,
+#hit-marker::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  background: #ffd15c;
+  box-shadow: 0 0 6px rgba(255, 107, 53, 0.9);
+}
+
+#hit-marker::before {
+  width: 28px;
+  height: 3px;
+}
+
+#hit-marker::after {
+  width: 3px;
+  height: 28px;
+}
+
 #portrait-overlay {
   display: none;
   position: fixed;
@@ -89,26 +126,47 @@
 
 @media (max-width: 900px) {
   #hud-top-right-stack {
-    width: 246px;
+    width: auto;
+    max-width: 246px;
   }
 
   #hud-status {
-    padding: 5px 8px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    max-height: 44px;
+    flex-wrap: nowrap;
+    overflow: hidden;
+    pointer-events: auto;
+    cursor: pointer;
+  }
+
+  #hud-status:not(.expanded) #soldier-title,
+  #hud-status:not(.expanded) .hud-sub-row,
+  #hud-status:not(.expanded) .hud-chapter-row,
+  #hud-status:not(.expanded) .hp-row,
+  #hud-status:not(.expanded) .gear-row,
+  #hud-status:not(.expanded) #hp-text,
+  #hud-status:not(.expanded) .stats-row {
+    display: none;
+  }
+
+  #hud-status.expanded {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    max-height: none;
+    overflow: visible;
   }
 
   .hud-header-row,
   .hud-sub-row,
   .hud-chapter-row,
-  .hp-row {
-    margin-bottom: 2px;
-  }
-
+  .hp-row,
   .stats-row {
     margin-bottom: 0;
-  }
-
-  .gear-row {
-    display: none;
   }
 
   #minimap-wrap {
@@ -148,16 +206,15 @@
     align-items: center;
     gap: 6px;
     padding: 3px 8px;
-    max-height: 48px;
+    max-height: 44px;
+    pointer-events: auto;
+    cursor: pointer;
   }
 
-  #soldier-title,
-  .hud-sub-row,
-  .hud-chapter-row,
-  .gear-row,
-  #hp-text,
-  .stats-row > span:nth-child(n+2) {
-    display: none;
+  #hud-status.expanded {
+    flex-direction: column;
+    align-items: stretch;
+    max-height: none;
   }
 
   .hud-header-row,
@@ -240,7 +297,13 @@
   }
 
   #toast-banner {
-    top: 70px;
+    top: 68px;
+    left: 50%;
+    transform: translateX(-50%);
+    max-width: min(320px, 62vw);
+    pointer-events: none;
+    z-index: 20;
+    text-align: center;
   }
 }
 

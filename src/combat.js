@@ -3,6 +3,7 @@ import { EVENTS } from './config.js';
 import { save, player, runtime, getCurrentRole, getDamageMultiplier, addScoreAndMoney, emit } from './state.js';
 import { worldShootables } from './world.js';
 import { createWeaponModel, getWeaponGroup, spawnParticles, updateWeaponVisuals, updateParticles } from './combat-effects.js';
+import { isAimAssistActive, findAimAssistHit, snapCrosshairGently, updateAimAssist } from './aim-assist.js';
 
 export { spawnParticles };
 
@@ -10,13 +11,22 @@ const raycaster = new THREE.Raycaster();
 const centerPoint = new THREE.Vector2(0, 0);
 const tmpForward = new THREE.Vector3();
 let damageFlashTimer = null;
+let activeScene = null;
+let activeCamera = null;
+let lastEntitiesApi = null;
 
 export function initCombat(scene, camera) {
   if (!camera) return;
+  activeScene = scene || camera.parent || null;
+  activeCamera = camera;
   if (scene && !camera.parent) scene.add(camera);
   const existing = getWeaponGroup();
   if (existing && existing.parent) existing.parent.remove(existing);
   camera.add(createWeaponModel());
+}
+
+export function getCombatContext() {
+  return { scene: activeScene, camera: activeCamera, entities: lastEntitiesApi };
 }
 
 function collectEntityShootables(entitiesApi) {
@@ -82,6 +92,7 @@ export function damageEntity(entity, amount = 1, entitiesApi = null, missionsApi
   if (isTransmitter) {
     if (entity.destroyed) return false;
     spawnParticles(scene, pos, 0xff9f1c, 16);
+    emit('combat:hit', { kind: 'transmitter', pos });
     missionsApi?.onMissionDroneOrTransmitterHit?.(entity, entitiesApi);
     entity.destroyed = true;
     entity.active = false;
@@ -100,6 +111,7 @@ export function damageEntity(entity, amount = 1, entitiesApi = null, missionsApi
 
   if (entity.destroyed) return false;
   spawnParticles(scene, pos, 0xff6b35, 16);
+  emit('combat:hit', { kind: 'drone', pos });
   const hadNumericHp = typeof entity.hp === 'number';
   const prevHp = hadNumericHp ? entity.hp : 1;
   const nextHp = prevHp - Math.max(1, amount);
@@ -138,6 +150,12 @@ export function fireWeapon(camera, entitiesApi, missionsApi) {
   }
   if (runtime.shootCooldown > 0) return;
 
+  if (entitiesApi) lastEntitiesApi = entitiesApi;
+  if (camera) {
+    activeCamera = camera;
+    if (camera.parent) activeScene = camera.parent;
+  }
+
   const role = getCurrentRole();
   let cooldown = 0.18 * (role.modifiers.fireCooldownMult || 1);
   if (save.gear.sight) cooldown *= 0.75;
@@ -153,6 +171,7 @@ export function fireWeapon(camera, entitiesApi, missionsApi) {
   emit(EVENTS.WEAPON_FIRED, {});
 
   if (!camera) return;
+  camera.updateMatrixWorld(true);
   const maxRange = role.modifiers.weaponRange || 140;
   raycaster.setFromCamera(centerPoint, camera);
   raycaster.far = maxRange;
@@ -171,7 +190,13 @@ export function fireWeapon(camera, entitiesApi, missionsApi) {
   const scene = camera.parent;
   if (candidateMeshes.length > 0) {
     const hits = raycaster.intersectObjects(candidateMeshes, true);
-    const validHit = hits.find((h) => h.distance <= wallDist && h.object.visible);
+    let validHit = hits.find((h) => h.distance <= wallDist && h.object.visible);
+    if (!validHit && isAimAssistActive()) {
+      validHit = findAimAssistHit(camera, candidateMeshes, maxRange, wallDist, worldShootables);
+      if (validHit) {
+        snapCrosshairGently(camera, validHit.point, 0.35);
+      }
+    }
     if (validHit) {
       const matched = findMatchingEntry(validHit.object, entitiesApi);
       if (matched.kind === 'drone' || matched.kind === 'transmitter') {
@@ -179,6 +204,9 @@ export function fireWeapon(camera, entitiesApi, missionsApi) {
         return;
       }
       spawnParticles(scene, validHit.point, 0xffd15c, 10);
+      if (matched.obj?.active !== false) {
+        emit('combat:hit', { kind: 'target', pos: clonePos(validHit.point) });
+      }
       missionsApi?.onRangeTargetHit?.(matched.obj, entitiesApi);
       return;
     }
@@ -191,6 +219,7 @@ export function fireWeapon(camera, entitiesApi, missionsApi) {
 
 export function triggerRoleAbility(entitiesApi) {
   if (!runtime.isPlaying || runtime.isDead || runtime.shopOpen || runtime.enlistOpen || runtime.paused || runtime.modalOpen) return;
+  if (entitiesApi) lastEntitiesApi = entitiesApi;
   if (runtime.abilityCooldownLeft > 0) {
     emit(EVENTS.TOAST, { message: `היכולת בטעינה (${Math.ceil(runtime.abilityCooldownLeft)} ש׳)` });
     return;
@@ -302,12 +331,14 @@ export function applyDamage(rawDamage, entitiesApi) {
 }
 
 export function updateCombat(dt, scene) {
+  if (scene) activeScene = scene;
   if (runtime.shootCooldown > 0) runtime.shootCooldown = Math.max(0, runtime.shootCooldown - dt);
   if (runtime.muzzleTimer > 0) runtime.muzzleTimer = Math.max(0, runtime.muzzleTimer - dt);
   if (runtime.recoil > 0) runtime.recoil = Math.max(0, runtime.recoil - dt * 2.4);
   if (runtime.abilityCooldownLeft > 0) runtime.abilityCooldownLeft = Math.max(0, runtime.abilityCooldownLeft - dt);
   if (runtime.abilityActiveLeft > 0) runtime.abilityActiveLeft = Math.max(0, runtime.abilityActiveLeft - dt);
 
+  updateAimAssist(dt, activeCamera, lastEntitiesApi);
   updateWeaponVisuals(dt);
   updateParticles(dt, scene);
 }
