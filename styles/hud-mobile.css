@@ -132,3 +132,118 @@
     padding: 6px 8px;
   }
 }
+
+@media (max-height: 380px) {
+  #hud-top-right-stack {
+    top: 4px;
+    right: 8px;
+    width: auto;
+    max-width: 240px;
+    gap: 0;
+  }
+
+  #hud-status {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 8px;
+    max-height: 48px;
+  }
+
+  #soldier-title,
+  .hud-sub-row,
+  .hud-chapter-row,
+  .gear-row,
+  #hp-text,
+  .stats-row > span:nth-child(n+2) {
+    display: none;
+  }
+
+  .hud-header-row,
+  .hp-row,
+  .stats-row {
+    margin-bottom: 0;
+    font-size: 12px;
+    line-height: 1.2;
+  }
+
+  #rank-badge {
+    font-size: 12px;
+    padding: 2px 7px;
+    white-space: nowrap;
+  }
+
+  .hp-bar-bg {
+    width: 54px;
+    min-width: 54px;
+    height: 10px;
+    flex: none;
+  }
+
+  .stats-row {
+    white-space: nowrap;
+  }
+
+  #hud-missions {
+    display: none;
+  }
+
+  #hud-compass {
+    top: 4px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 164px;
+    height: 24px;
+    max-height: 26px;
+    padding: 2px 10px;
+    font-size: 12px;
+  }
+
+  #hud-objective-pill {
+    position: fixed;
+    top: 34px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: max-content;
+    max-width: 46vw;
+    min-height: 28px;
+    padding: 3px 10px;
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+
+  #objective-text {
+    min-width: 0;
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  #objective-distance {
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  #minimap-wrap {
+    top: 54px;
+    bottom: auto;
+    left: 8px;
+    padding: 2px;
+  }
+
+  #minimap-canvas {
+    width: 74px;
+    height: 74px;
+  }
+
+  #waypoint-indicator {
+    top: 78px;
+  }
+
+  #toast-banner {
+    top: 70px;
+  }
+}

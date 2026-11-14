@@ -20,6 +20,7 @@ const els = {};
 let startGameFn = null;
 let onResetFn = null;
 let bound = false;
+let confirmRoleBound = false;
 
 function el(id) {
   if (!els[id]) els[id] = document.getElementById(id);
@@ -31,11 +32,47 @@ function isOpen(id) {
   return Boolean(node && !node.classList.contains('hidden'));
 }
 
+function lockLandscape() {
+  try {
+    const orient = screen && screen.orientation;
+    if (orient && typeof orient.lock === 'function') {
+      const res = orient.lock('landscape');
+      if (res && typeof res.catch === 'function') res.catch(() => {});
+    }
+  } catch {}
+}
+
+function requestPlayFullscreen() {
+  try {
+    const root = document.documentElement;
+    if (root && !document.fullscreenElement) {
+      const req = root.requestFullscreen || root.webkitRequestFullscreen;
+      if (typeof req === 'function') {
+        const res = req.call(root);
+        if (res && typeof res.then === 'function') {
+          res.then(lockLandscape, lockLandscape);
+          return;
+        }
+      }
+    }
+    lockLandscape();
+  } catch {
+    lockLandscape();
+  }
+}
+
 export function initModalManager(ctx) {
   startGameFn = typeof ctx.startGame === 'function' ? ctx.startGame : null;
   onResetFn = typeof ctx.onReset === 'function' ? ctx.onReset : null;
   for (const id of MODAL_IDS) el(id);
   el('reset-confirm');
+  if (!confirmRoleBound) {
+    const confirmRoleBtn = el('btn-confirm-role');
+    if (confirmRoleBtn) {
+      confirmRoleBtn.addEventListener('click', requestPlayFullscreen);
+      confirmRoleBound = true;
+    }
+  }
 }
 
 export function setModalVisible(id, visible) {
@@ -136,6 +173,7 @@ export function handleEscapeKey() {
     return;
   }
   if (isOpen('pause-modal')) {
+    requestPlayFullscreen();
     closeAllModals();
     return;
   }
@@ -156,6 +194,7 @@ export function bindTitleScreen() {
   const contBtn = el('btn-continue');
   if (newBtn) {
     newBtn.addEventListener('click', () => {
+      requestPlayFullscreen();
       setModalVisible('title-screen', false);
       runtime.titleActive = false;
       resetSave();
@@ -164,6 +203,7 @@ export function bindTitleScreen() {
   }
   if (contBtn) {
     contBtn.addEventListener('click', () => {
+      requestPlayFullscreen();
       setModalVisible('title-screen', false);
       runtime.titleActive = false;
       restorePlayerPosition();
@@ -174,7 +214,12 @@ export function bindTitleScreen() {
 
 export function bindPauseMenu() {
   const playBtn = el('btn-play');
-  if (playBtn) playBtn.addEventListener('click', () => closeAllModals());
+  if (playBtn) {
+    playBtn.addEventListener('click', () => {
+      requestPlayFullscreen();
+      closeAllModals();
+    });
+  }
   const changeBtn = el('btn-change-role');
   if (changeBtn) {
     changeBtn.addEventListener('click', () => {
