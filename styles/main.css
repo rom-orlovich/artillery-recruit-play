@@ -1,0 +1,170 @@
+:root {
+  --safe-left: max(20px, env(safe-area-inset-left, 20px));
+  --safe-right: max(20px, env(safe-area-inset-right, 20px));
+  --safe-top: max(12px, env(safe-area-inset-top, 12px));
+  --safe-bottom: max(12px, env(safe-area-inset-bottom, 12px));
+  --font-ui: 'Rubik', 'Assistant', system-ui, -apple-system, 'Segoe UI', Tahoma, Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+html {
+  font-size: 16px;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #1a1d16;
+  color: #f3f1e2;
+  font-family: var(--font-ui);
+  font-size: 14px;
+}
+
+small, sub, sup {
+  font-size: 12px;
+}
+
+button {
+  cursor: pointer;
+  font-family: inherit;
+  min-width: 44px;
+  min-height: 44px;
+  font-size: 14px;
+}
+
+#game-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+#damage-flash {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle, transparent 45%, rgba(210, 35, 35, 0.65) 100%);
+  opacity: 0;
+  transition: opacity 0.14s ease-out;
+  z-index: 4;
+}
+
+#damage-flash.active {
+  opacity: 1;
+}
+
+#crosshair {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  width: 20px;
+  height: 20px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 5;
+}
+
+#crosshair::before,
+#crosshair::after {
+  content: '';
+  position: absolute;
+  background: rgba(255, 248, 210, 0.92);
+  box-shadow: 0 0 3px #000;
+}
+
+#crosshair::before {
+  left: 9px;
+  top: 2px;
+  width: 2px;
+  height: 16px;
+}
+
+#crosshair::after {
+  top: 9px;
+  left: 2px;
+  width: 16px;
+  height: 2px;
+}
+
+
+.field-label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+#input-soldier-name {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #c8d1a3;
+  background: #141710;
+  color: #fff;
+  font-size: 15px;
+}
+
+.modal-actions-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.btn-primary,
+.btn-secondary,
+.btn-danger {
+  padding: 8px 16px;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 8px;
+  border: none;
+  font-weight: 700;
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.btn-primary {
+  background: #2c8f9e;
+  color: #fff;
+}
+
+.btn-secondary {
+  background: #3d463c;
+  color: #f3f1e2;
+}
+
+.btn-danger {
+  background: #9e332b;
+  color: #fff;
+}
+
+.touch-guide {
+  display: none;
+}
+
+body.is-touch .touch-guide,
+body.touch-device .touch-guide {
+  display: block;
+}
+
+body.is-touch .kb-hint,
+body.touch-device .kb-hint {
+  display: none !important;
+}
+
+.hidden {
+  display: none !important;
+}

@@ -1,0 +1,134 @@
+#portrait-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: #0a0e12;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 24px;
+}
+
+.portrait-card {
+  background: #1b242c;
+  border: 2px solid #2cc5b6;
+  border-radius: 16px;
+  padding: 24px 20px;
+  font-size: 20px;
+  font-weight: 700;
+  color: #ffd15c;
+}
+
+.portrait-card p {
+  font-size: 20px;
+}
+
+.portrait-icon {
+  font-size: 48px;
+  line-height: 1;
+  margin-bottom: 12px;
+}
+
+@media (orientation: portrait) {
+  #portrait-overlay {
+    display: flex;
+  }
+
+  #enlist-modal,
+  #title-screen {
+    display: none !important;
+  }
+}
+
+#campaign-modal {
+  padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
+}
+
+#campaign-modal .modal-card {
+  height: min(358px, calc(100dvh - 24px));
+  max-height: min(358px, calc(100dvh - 24px));
+  overflow: hidden;
+  padding: 0;
+}
+
+#campaign-modal .campaign-header {
+  margin-bottom: 0;
+}
+
+#campaign-modal .campaign-tab {
+  min-width: 44px;
+  min-height: 44px;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#campaign-modal .btn-start-campaign-mission,
+#campaign-modal #btn-skip-commanders-course {
+  min-width: 44px;
+  min-height: 44px;
+  font-size: 13px;
+}
+
+#campaign-modal .campaign-missions-grid {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+#campaign-modal .campaign-achievements-grid {
+  grid-template-columns: repeat(3, 1fr);
+  font-size: 12px;
+}
+
+#campaign-modal .campaign-achievements-grid *,
+#campaign-modal .campaign-mission-card *,
+#campaign-modal #campaign-chapter-desc {
+  font-size: 12px;
+}
+
+@media (max-width: 900px) {
+  #hud-top-right-stack {
+    width: 246px;
+  }
+
+  #hud-status {
+    padding: 5px 8px;
+  }
+
+  .hud-header-row,
+  .hud-sub-row,
+  .hud-chapter-row,
+  .hp-row {
+    margin-bottom: 2px;
+  }
+
+  .stats-row {
+    margin-bottom: 0;
+  }
+
+  .gear-row {
+    display: none;
+  }
+
+  #minimap-wrap {
+    top: calc(var(--safe-top) + 54px);
+    bottom: auto;
+    left: var(--safe-left);
+    padding: 3px;
+  }
+
+  #minimap-canvas {
+    width: 92px;
+    height: 92px;
+  }
+
+  #hud-missions {
+    left: calc(var(--safe-left) + 106px);
+    top: var(--safe-top);
+    width: 186px;
+    max-height: 132px;
+    overflow: hidden;
+    padding: 6px 8px;
+  }
+}

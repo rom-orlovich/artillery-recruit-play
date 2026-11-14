@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>תותחנים בשטח: כומתת הטורקיז</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="./styles/main.css">
+  <link rel="stylesheet" href="./styles/modals.css">
+  <link rel="stylesheet" href="./styles/campaign.css">
+  <link rel="stylesheet" href="./styles/hud.css">
+  <link rel="stylesheet" href="./styles/touch.css">
+  <link rel="stylesheet" href="./styles/hud-mobile.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <canvas id="game-canvas"></canvas>
+  <div id="damage-flash"></div>
+  <div id="nvg-overlay" class="hidden"></div>
+  <div id="crosshair" class="hidden"></div>
+
+  <div id="hud-layer">
+    <div id="hud-top-right-stack">
+      <section id="hud-status" class="hud-panel">
+        <div class="hud-header-row">
+          <span id="soldier-title">טוראי יואב — צוות דוהר</span>
+          <span id="rank-badge" class="badge-rank">טוראי</span>
+        </div>
+        <div class="hud-sub-row">
+          <span id="day-text">יום 1</span>
+          <span id="clock-text" class="hidden">07:30</span>
+          <span id="beret-badge" class="badge-beret">🪖 טירון</span>
+        </div>
+        <div class="hud-chapter-row">
+          <span id="chapter-badge" class="badge-chapter">פרק 1: בקו"ם ושבטה</span>
+        </div>
+        <div class="hp-row">
+          <div class="hp-bar-bg">
+            <div id="hp-bar-fill"></div>
+          </div>
+          <bdi dir="ltr" id="hp-text">100 / 100</bdi>
+        </div>
+        <div class="needs-row hidden">
+          <div class="need-bar-bg"><div id="energy-bar-fill"></div></div>
+          <div class="need-bar-bg"><div id="hydration-bar-fill"></div></div>
+        </div>
+        <div class="stats-row">
+          <span>💰 <bdi dir="ltr" id="money-text">120 ₪</bdi></span>
+          <span>⭐ <bdi dir="ltr" id="score-text">0</bdi></span>
+          <span>🛡️ <bdi dir="ltr" id="armor-pct">0%</bdi></span>
+        </div>
+        <div class="gear-row">
+          <span id="gear-helmet" class="gear-chip">🪖 קסדה</span>
+          <span id="gear-vest" class="gear-chip">🦺 אפוד</span>
+          <span id="gear-shluker" class="gear-chip">🎒 שלוקר</span>
+          <span id="gear-sight" class="gear-chip">🎯 כוונת</span>
+        </div>
+      </section>
+
+      <div id="hud-objective-pill" class="hud-panel">
+        <span class="objective-icon">🎯</span>
+        <span id="objective-text">דבר עם מפקד הסוללה</span>
+        <bdi dir="ltr" id="objective-distance">0 מ'</bdi>
+      </div>
+    </div>
+
+    <div id="hud-compass" class="hud-panel">
+      <span>צ׳</span>
+      <span id="compass-marker">◆</span>
+      <span>מז׳</span>
+    </div>
+    <div id="waypoint-indicator">◆</div>
+
+    <section id="hud-missions" class="hud-panel">
+      <div class="hud-header-row">
+        <span>📋 משימות סוללה</span>
+        <bdi dir="ltr" id="missions-done-count">0/4</bdi>
+      </div>
+      <div id="missions-list"></div>
+      <div id="ability-bar">
+        <span id="ability-name">הפגזת סוללה</span>
+        <span id="ability-status">מוכן</span>
+        <span class="kb-hint">[Q]</span>
+      </div>
+      <div id="range-timer-box" class="hidden">
+        <span>⏱️ <strong id="range-timer-val">60</strong>ש׳</span>
+        <span>🎯 <bdi dir="ltr"><strong id="range-hits-val">0</strong>/<strong id="range-target-total">10</strong></bdi></span>
+      </div>
+    </section>
+
+    <div id="minimap-wrap" class="hud-panel">
+      <canvas id="minimap-canvas" width="190" height="190"></canvas>
+    </div>
+
+    <div id="radio-bar" class="hud-panel hidden">
+      <strong id="radio-speaker">מפי"ק 409</strong>
+      <span id="radio-text"></span>
+    </div>
+
+    <div id="dialogue-box" class="hud-panel hidden">
+      <div class="dialogue-header">
+        <strong id="dialogue-npc-name"></strong>
+        <button type="button" id="btn-close-dialogue" class="btn-secondary">סגור</button>
+      </div>
+      <p id="dialogue-npc-text"></p>
+    </div>
+
+    <div id="toast-banner" class="hidden"></div>
+    <div id="carry-indicator" class="hidden"></div>
+    <div id="interact-prompt" class="hidden"></div>
+  </div>
+
+  <div id="touch-controls" class="hidden">
+    <div id="look-zone"></div>
+    <div id="joy-zone">
+      <div id="joy-base"></div>
+      <div id="joy-knob"></div>
+    </div>
+    <div class="touch-actions-grid">
+      <button type="button" id="btn-touch-fire" class="touch-btn touch-fire">🔥 ירי</button>
+      <button type="button" id="btn-touch-interact" class="touch-btn">✋ פעולה</button>
+      <button type="button" id="btn-touch-ability" class="touch-btn touch-ability">⚡ יכולת</button>
+      <button type="button" id="btn-touch-sprint" class="touch-btn">🏃 ריצה</button>
+      <button type="button" id="btn-touch-jump" class="touch-btn">⬆️ קפיצה</button>
+      <button type="button" id="btn-touch-campaign" class="touch-btn touch-campaign">📖 קמפיין</button>
+      <button type="button" id="btn-touch-fire-map" class="touch-btn hidden">🎯 סיוע אש</button>
+      <button type="button" id="btn-touch-nvg" class="touch-btn hidden">🦉 אמר"ל</button>
+    </div>
+    <button type="button" id="btn-touch-pause" class="touch-btn touch-pause">☰</button>
+  </div>
+
+  <div id="title-screen" class="overlay-modal hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h1>תותחנים בשטח: כומתת הטורקיז</h1>
+      </div>
+      <div class="modal-body title-body">
+        <p class="modal-desc">מסלול הלוחם של חיל התותחנים — מבקו״ם ושבטה ועד קו האש.</p>
+      </div>
+      <div class="modal-footer title-actions">
+        <button type="button" id="btn-new-game" class="btn-primary">התגייס לחיל התותחנים ◀</button>
+        <button type="button" id="btn-continue" class="btn-secondary hidden">המשך שירות ▶</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="enlist-modal" class="overlay-modal hidden">
+    <div class="modal-card modal-wide">
+      <div id="enlist-step-bakum" class="enlist-step">
+        <div class="modal-header">
+          <h2>צו גיוס — בסיס קליטה ומיון (בקו"ם)</h2>
+        </div>
+        <div class="modal-body">
+          <p class="modal-desc">ברוך הבא לשרשרת החיול של חיל התותחנים. פרופיל רפואי: <strong>82 (כשיר ללחימה)</strong>. הונפקו מדי ב׳, דיסקית וקיטבג א׳.</p>
+          <label class="field-label" for="input-soldier-name">שם הלוחם/ת:</label>
+          <input id="input-soldier-name" type="text" maxlength="18" value="יואב">
+        </div>
+        <div class="modal-footer">
+          <button type="button" id="btn-enlist-to-shivta" class="btn-primary">עלה לאוטובוס למחנה שבטה 🚌</button>
+        </div>
+      </div>
+
+      <div id="enlist-step-gibbush" class="enlist-step hidden">
+        <div class="modal-header">
+          <h2>מחנה שבטה (ביסל"ת) — טירונות רובאי 03 וגיבוש תותחנים</h2>
+        </div>
+        <div class="modal-body">
+          <p class="modal-desc">הגעת לבית הספר לתותחנות בנגב. השלמת השבעה, קליטת נשק אישי, ניווט מדברי ומסע תחת משקל לקראת שיבוץ למערכי החיל.</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" id="btn-enlist-to-roles" class="btn-primary">המשך לשיוך למערכים ובחירת תפקיד 🪖</button>
+        </div>
+      </div>
+
+      <div id="enlist-step-roles" class="enlist-step hidden">
+        <div class="modal-header">
+          <h2>שיוך למערכים — בחר את מסלול הלחימה שלך</h2>
+        </div>
+        <div class="modal-body">
+          <div id="roles-grid-playable" class="roles-grid"></div>
+          <h3 class="locked-heading">אופק קידום ויחידות המשך (נפתחים בהמשך השירות)</h3>
+          <div id="roles-grid-locked" class="roles-grid"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" id="btn-confirm-role" class="btn-primary">התייצב בסוללה והתחל שירות!</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="pause-modal" class="overlay-modal hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h1>תותחנים בשטח: כומתת הטורקיז</h1>
+      </div>
+      <div class="modal-body pause-body">
+        <div class="modal-actions-col">
+          <button type="button" id="btn-play" class="btn-primary">המשך במשחק ▶</button>
+          <button type="button" id="btn-change-role" class="btn-secondary">החלף תפקיד / מסלול</button>
+          <button type="button" id="btn-reset" class="btn-danger">אפס התקדמות שמורה</button>
+          <div id="reset-confirm" class="reset-confirm hidden">
+            <span class="reset-confirm-label">לאפס את כל ההתקדמות השמורה?</span>
+            <div class="reset-confirm-actions">
+              <button type="button" id="btn-reset-confirm" class="btn-danger">אשר איפוס</button>
+              <button type="button" id="btn-reset-cancel" class="btn-secondary">ביטול</button>
+            </div>
+          </div>
+        </div>
+        <div class="pause-guide">
+          <p class="modal-desc kb-hint">תנועה: WASD | ריצה: Shift | קפיצה: Space | ירי: קליק שמאלי | פעולה: E | יכולת תפקיד: Q | יומן קמפיין: J | השהיה: P</p>
+          <p class="modal-desc touch-guide">אגודל שמאל: תנועה וריצה | אגודל ימין: מבט, כיוון וירי</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="shop-modal" class="overlay-modal hidden">
+    <div class="modal-card modal-wide">
+      <div class="modal-header shop-header">
+        <h2>אפסנאות סוללתית — ציוד לחימה ומיגון</h2>
+        <span>יתרה: <bdi dir="ltr"><strong id="shop-money">120 ₪</strong></bdi></span>
+        <button type="button" id="btn-close-shop" class="btn-secondary modal-close-btn" aria-label="סגור">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="shop-items-container" class="shop-grid"></div>
+      </div>
+      <div class="modal-footer shop-footer">
+        <div id="shop-earn-help">
+          <strong>💡 איך מרוויחים מטבעות?</strong>
+          <span>השלימו משימות סוללה, תורנויות או פגיעות במטווח</span>
+        </div>
+        <button type="button" id="btn-shop-go-mission" class="btn-primary">צא למשימה ◀</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="campaign-modal" class="overlay-modal hidden">
+    <div class="modal-card modal-wide campaign-card">
+      <div class="modal-header campaign-header">
+        <h2>יומן הקמפיין ועיטורי שירות</h2>
+        <button type="button" id="btn-close-campaign" class="btn-secondary modal-close-btn" aria-label="סגור">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="campaign-chapters-tabs" class="campaign-tabs"></div>
+        <div class="campaign-chapter-bar">
+          <span id="campaign-chapter-desc"></span>
+          <button type="button" id="btn-skip-commanders-course" class="btn-secondary">דלג על קורס מפק"ץ (עבור לפרק 7)</button>
+        </div>
+        <div id="campaign-missions-grid" class="campaign-missions-grid"></div>
+        <h3 class="campaign-section-title">עיטורי שירות והישגים (12)</h3>
+        <div id="campaign-achievements-grid" class="campaign-achievements-grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="fire-map-modal" class="overlay-modal hidden">
+    <div class="modal-card">
+      <div class="modal-header campaign-header">
+        <h2>מפת אש טקטית</h2>
+        <button type="button" id="btn-close-fire-map" class="btn-secondary modal-close-btn" aria-label="סגור">✕</button>
+      </div>
+      <div class="modal-body">
+        <canvas id="fire-map-canvas" width="320" height="320"></canvas>
+        <div class="fire-shell-row">
+          <button type="button" id="btn-shell-he" class="btn-secondary">נפיץ (HE)</button>
+          <button type="button" id="btn-shell-illum" class="btn-secondary">תאורה</button>
+          <button type="button" id="btn-shell-smoke" class="btn-secondary">עשן</button>
+        </div>
+        <p id="fire-map-status" class="modal-desc"></p>
+      </div>
+    </div>
+  </div>
+
+  <div id="full-map-modal" class="overlay-modal hidden">
+    <div class="modal-card full-map-card">
+      <div class="modal-header">
+        <h2>מפת הגזרות</h2>
+        <button type="button" id="btn-close-full-map" class="btn-secondary modal-close-btn" aria-label="סגור">✕</button>
+      </div>
+      <div class="full-map-body">
+        <canvas id="full-map-canvas"></canvas>
+        <div class="full-map-side">
+          <p class="full-map-hint">נסיעה מהירה</p>
+          <button type="button" class="btn-secondary btn-travel" data-region="shivta">🏜️ מחנה שבטה</button>
+          <button type="button" class="btn-secondary btn-travel" data-region="yoav">🏕️ מחנה יואב</button>
+          <button type="button" class="btn-secondary btn-travel" data-region="line">💥 קו הסוללה</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="discharge-modal" class="overlay-modal hidden">
+    <div class="modal-card modal-wide">
+      <div class="modal-header">
+        <h2>תעודת שחרור בכבוד מצה"ל</h2>
+      </div>
+      <div class="modal-body">
+        <div id="discharge-summary-card"></div>
+        <div id="discharge-medals-list"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="btn-continue-reserves" class="btn-secondary">המשך במצב מילואים</button>
+        <button type="button" id="btn-new-campaign" class="btn-primary">התחל מחזור חדש (New Game+)</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="death-modal" class="overlay-modal hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2>נפצעת בקו!</h2>
+      </div>
+      <div class="modal-body">
+        <p class="modal-desc">חובש הסוללה מייצב את מצבך. הציוד, הכסף והמשימות שהושלמו נשמרים.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="btn-respawn" class="btn-primary">פנה למרפאה בבסיס</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="portrait-overlay">
+    <div class="portrait-card">
+      <div class="portrait-icon">📱</div>
+      <p>סובב את הטלפון לרוחב 📱</p>
+    </div>
+  </div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>

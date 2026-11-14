@@ -1,0 +1,116 @@
+#touch-controls {
+  position: fixed;
+  inset: 0;
+  z-index: 8;
+  pointer-events: none;
+  touch-action: none;
+}
+
+#look-zone {
+  position: fixed;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+#joy-zone {
+  position: fixed;
+  left: var(--safe-left);
+  top: 172px;
+  width: 280px;
+  height: calc(100dvh - 172px - var(--safe-bottom));
+  background: transparent;
+  border: none;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+#joy-base {
+  position: absolute;
+  left: 90px;
+  top: 120px;
+  width: 96px;
+  height: 96px;
+  margin-left: -48px;
+  margin-top: -48px;
+  border-radius: 50%;
+  background: rgba(200, 209, 163, 0.14);
+  border: 1px solid rgba(200, 209, 163, 0.38);
+  display: none;
+  pointer-events: none;
+}
+
+#joy-base.active {
+  display: block;
+}
+
+#joy-knob {
+  position: absolute;
+  left: 90px;
+  top: 120px;
+  width: 48px;
+  height: 48px;
+  margin-left: -24px;
+  margin-top: -24px;
+  border-radius: 50%;
+  background: rgba(44, 197, 182, 0.85);
+  border: 2px solid #e6fbff;
+  display: none;
+  pointer-events: none;
+}
+
+#joy-knob.active {
+  display: block;
+}
+
+.touch-actions-grid {
+  position: fixed;
+  right: var(--safe-right);
+  bottom: var(--safe-bottom);
+  display: grid;
+  grid-template-columns: repeat(3, 72px);
+  gap: 10px;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.touch-btn {
+  min-width: 44px;
+  min-height: 48px;
+  height: 48px;
+  border-radius: 12px;
+  border: 1px solid rgba(200, 209, 163, 0.55);
+  background: rgba(20, 24, 22, 0.72);
+  color: #f3f1e2;
+  font-size: 13px;
+  font-weight: 700;
+  touch-action: none;
+}
+
+.touch-btn.active {
+  background: rgba(44, 197, 182, 0.85);
+  border-color: #fff;
+}
+
+.touch-fire {
+  background: rgba(185, 52, 42, 0.84);
+  border-color: #ffd15c;
+}
+
+.touch-ability {
+  background: rgba(36, 108, 130, 0.85);
+}
+
+.touch-pause {
+  position: fixed;
+  top: var(--safe-top);
+  left: var(--safe-left);
+  width: 48px;
+  height: 48px;
+  pointer-events: auto;
+  font-size: 18px;
+}
+
