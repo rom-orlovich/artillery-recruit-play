@@ -1,24 +1,42 @@
 import { REGIONS } from './world-layout.js';
-import { getMapImage, mapToImage, getMapLabels, getObjectiveTarget, drawPlayerArrow } from './map-image.js';
+import { MAP_EXTENT, getMapImage, mapToImage, getMapLabels, getObjectiveInfo, drawPlayerArrow, trackObjective } from './map-image.js';
 import { player, runtime } from './state.js';
 import { travelTo, getRegionAt } from './world.js';
 import { resetInputState, releaseGameLock } from './controls.js';
 import { closeAllModals, setModalVisible } from './modal-manager.js';
+import { resetRouteCache, getRouteForObjective, computeFitRect, drawRoute } from './full-map-route.js';
+import { MODAL_ID, ensureStylesheet, ensureFullMapDom, syncToggleButton, updateMissionCard, drawTargetAndLabel } from './full-map-card.js';
 
-const MODAL_ID = 'full-map-modal';
 const REGION_FONT = 'bold 15px Tahoma, Arial, sans-serif';
 const LANDMARK_FONT = 'bold 12px Tahoma, Arial, sans-serif';
 
 let bound = false;
+let zoomMode = 'fit';
+let rafId = 0;
 
 function isFullMapOpen() {
   const modal = document.getElementById(MODAL_ID);
   return Boolean(modal && !modal.classList.contains('hidden'));
 }
 
-function fitTransform(canvas, image) {
-  const scale = Math.min(canvas.width / image.width, canvas.height / image.height);
-  return { scale, offsetX: (canvas.width - image.width * scale) / 2, offsetY: (canvas.height - image.height * scale) / 2 };
+function handleZoomToggle() {
+  zoomMode = zoomMode === 'fit' ? 'all' : 'fit';
+  syncToggleButton(zoomMode);
+  drawMap();
+}
+
+function fitWorldRect(canvas, rect, dpr) {
+  const [ix0, iy0] = mapToImage(rect.minX, rect.minZ);
+  const [ix1, iy1] = mapToImage(rect.maxX, rect.maxZ);
+  const srcW = Math.max(1, ix1 - ix0);
+  const srcH = Math.max(1, iy1 - iy0);
+  const padPx = zoomMode === 'fit' ? 24 * dpr : 0;
+  const scale = Math.min(Math.max(0.05, (canvas.width - padPx) / srcW), Math.max(0.05, (canvas.height - padPx) / srcH));
+  return {
+    scale,
+    offsetX: canvas.width / 2 - (ix0 + srcW / 2) * scale,
+    offsetY: canvas.height / 2 - (iy0 + srcH / 2) * scale
+  };
 }
 
 function drawLabels(ctx, toScreen, dpr) {
@@ -44,18 +62,27 @@ function drawMap() {
   if (!canvas) return;
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   const rect = canvas.getBoundingClientRect();
-  canvas.width = Math.max(1, Math.round(rect.width * dpr));
-  canvas.height = Math.max(1, Math.round(rect.height * dpr));
+  const nextW = Math.max(1, Math.round(rect.width * dpr));
+  const nextH = Math.max(1, Math.round(rect.height * dpr));
+  if (canvas.width !== nextW) canvas.width = nextW;
+  if (canvas.height !== nextH) canvas.height = nextH;
   const ctx = canvas.getContext('2d');
   const image = getMapImage();
-  const { scale, offsetX, offsetY } = fitTransform(canvas, image);
+  const info = getObjectiveInfo();
+  const target = info.target;
+  updateMissionCard(info);
+  const route = target ? getRouteForObjective(player.pos, target) : null;
+  const worldRect = zoomMode === 'fit' ? computeFitRect(player.pos, target, route) : MAP_EXTENT;
+  const { scale, offsetX, offsetY } = fitWorldRect(canvas, worldRect, dpr);
   const toScreen = (x, z) => {
     const [ix, iy] = mapToImage(x, z);
     return [offsetX + ix * scale, offsetY + iy * scale];
   };
+
   ctx.fillStyle = '#10161a';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(image, offsetX, offsetY, image.width * scale, image.height * scale);
+
   const active = getRegionAt(player.pos.x, player.pos.z);
   ctx.lineWidth = 2 * dpr;
   for (const region of Object.values(REGIONS)) {
@@ -71,37 +98,69 @@ function drawMap() {
   ctx.textBaseline = 'middle';
   ctx.direction = 'rtl';
   drawLabels(ctx, toScreen, dpr);
-  const target = getObjectiveTarget();
+  drawRoute(ctx, route, toScreen, dpr);
+
+  const pulse = 0.5 + 0.5 * Math.sin((performance.now() / 1000) * 5);
   if (target) {
-    const [tx, ty] = toScreen(target.x, target.z);
-    ctx.beginPath();
-    ctx.arc(tx, ty, 7 * dpr, 0, Math.PI * 2);
-    ctx.fillStyle = '#ffd15c';
-    ctx.fill();
-    ctx.strokeStyle = '#2a2008';
-    ctx.lineWidth = 2 * dpr;
-    ctx.stroke();
+    const [tx, ty] = drawTargetAndLabel(ctx, target, info.objectiveText, toScreen, dpr, pulse);
+    canvas.dataset.objX = tx.toFixed(1);
+    canvas.dataset.objY = ty.toFixed(1);
+  } else {
+    canvas.dataset.objX = '';
+    canvas.dataset.objY = '';
   }
+
   const [px, py] = toScreen(player.pos.x, player.pos.z);
   drawPlayerArrow(ctx, px, py, player.yaw, 7 * dpr);
+  canvas.dataset.playerX = px.toFixed(1);
+  canvas.dataset.playerY = py.toFixed(1);
+  canvas.dataset.scale = scale.toFixed(4);
+  canvas.dataset.zoomMode = zoomMode;
+
   for (const button of document.querySelectorAll('.btn-travel')) button.classList.toggle('active', button.dataset.region === active);
 }
 
+function stopLoop() {
+  if (rafId) cancelAnimationFrame(rafId);
+  rafId = 0;
+}
+
+function tick() {
+  if (!isFullMapOpen()) {
+    rafId = 0;
+    return;
+  }
+  drawMap();
+  rafId = requestAnimationFrame(tick);
+}
+
 function closeFullMap() {
+  stopLoop();
+  resetRouteCache();
   setModalVisible(MODAL_ID, false);
   closeAllModals();
 }
 
 export function openFullMap() {
   if (!runtime.isPlaying || runtime.isDead || runtime.modalOpen || runtime.shopOpen || runtime.campaignModalOpen || isFullMapOpen()) return;
+  ensureStylesheet();
+  ensureFullMapDom(handleZoomToggle);
   resetInputState();
   releaseGameLock();
   runtime.modalOpen = true;
+  zoomMode = 'fit';
+  resetRouteCache();
+  syncToggleButton(zoomMode);
   setModalVisible(MODAL_ID, true);
   drawMap();
+  stopLoop();
+  rafId = requestAnimationFrame(tick);
 }
 
 export function initFullMap() {
+  trackObjective();
+  ensureStylesheet();
+  ensureFullMapDom(handleZoomToggle);
   if (bound) return;
   bound = true;
   document.getElementById('btn-close-full-map')?.addEventListener('click', closeFullMap);
