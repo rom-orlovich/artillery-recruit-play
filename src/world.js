@@ -7,7 +7,7 @@ import { createSplat, createTerrainMaterial } from './world-ground.js';
 import { createSky } from './world-sky.js';
 import { buildShivta } from './world-shivta.js';
 import { buildYoav } from './world-yoav.js';
-import { buildLine } from './world-line.js';
+import { buildLine, addGunCrew } from './world-line.js';
 import { addDoher, loadHeroDoher } from './world-vehicles.js';
 
 export { colliders, worldShootables, getTerrainHeight };
@@ -21,6 +21,10 @@ const REGION_VIEW_DISTANCE = { shivta: 30, yoav: 80, line: 120 };
 const TILE_VIEW_DISTANCE = 380;
 const SHADOW_EXTENT = 70;
 const HERO_RANGE = 55;
+const H_FOV = 95;
+const V_FOV_MIN = 40;
+const V_FOV_MAX = 72;
+const TONE_MAPPING = THREE.ACESFilmicToneMapping;
 const FLAG_SPOTS = [
   { region: 'shivta', x: -18, z: -25.5 }, { region: 'shivta', x: -14, z: -25.5 }, { region: 'shivta', x: -10, z: -25.5 },
   { region: 'yoav', x: -104, z: -182.5 }, { region: 'line', x: -6, z: -396 }
@@ -87,6 +91,17 @@ function addFlags() {
   }
 }
 
+function seatCrew(hero, support) {
+  if (hero.crew) {
+    hero.spot.group.remove(hero.crew);
+    hero.crew.children.forEach((mesh) => mesh.geometry.dispose());
+  }
+  const bake = createBake();
+  addGunCrew(bake, support, hero.spot.crew, hero.spot.x, hero.spot.z);
+  hero.crew = bake.build('hero-crew');
+  hero.spot.group.add(hero.crew);
+}
+
 function addHeroGuns(heroSpots) {
   state.heroes = heroSpots.map((spot) => {
     spot.group = state.regions[spot.z > -128 ? 'shivta' : 'line'];
@@ -94,11 +109,14 @@ function addHeroGuns(heroSpots) {
     addDoher(bake, spot.x, spot.y, spot.z, spot.ry);
     const fallback = bake.build('hero-fallback');
     spot.group.add(fallback);
-    return { spot, fallback, mesh: null };
+    const hero = { spot, fallback, mesh: null, crew: null };
+    seatCrew(hero, fallback);
+    return hero;
   });
   loadHeroDoher(heroSpots, (meshes) => {
     meshes.forEach((mesh, i) => {
       state.heroes[i].mesh = mesh;
+      seatCrew(state.heroes[i], mesh);
     });
     state.lastKey = '';
   });
@@ -109,10 +127,17 @@ function setupRenderer(canvas, isMobile) {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMapping = TONE_MAPPING;
   renderer.shadowMap.enabled = !isMobile;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   return renderer;
+}
+
+function fitLens(camera) {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  const vertical = 2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(H_FOV / 2)) / camera.aspect);
+  camera.fov = THREE.MathUtils.clamp(THREE.MathUtils.radToDeg(vertical), V_FOV_MIN, V_FOV_MAX);
+  camera.updateProjectionMatrix();
 }
 
 function setupShadows(sun, isMobile) {
@@ -133,8 +158,9 @@ export function createWorld(canvas, isMobile) {
   resetWorldKit();
   animatedFlags.length = 0;
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(72, window.innerWidth / window.innerHeight, 0.15, 1700);
+  const camera = new THREE.PerspectiveCamera(V_FOV_MAX, window.innerWidth / window.innerHeight, 0.15, 1700);
   camera.rotation.order = 'YXZ';
+  fitLens(camera);
   const renderer = setupRenderer(canvas, isMobile);
   state.scene = scene;
   state.camera = camera;
@@ -162,8 +188,7 @@ export function createWorld(canvas, isMobile) {
   updateWorldAnimations(0);
 
   window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
+    fitLens(camera);
     renderer.setSize(window.innerWidth, window.innerHeight);
   });
   return { scene, camera, renderer };

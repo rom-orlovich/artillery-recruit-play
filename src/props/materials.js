@@ -11,6 +11,7 @@ const RACK_TEXTURE_HEIGHT = 512;
 const RACK_HOLE_COUNT = 30;
 const MAT_TEXTURE_SIZE = 256;
 const MAT_FLECK_COUNT = 2600;
+const TUFT_BLADES = 90;
 const UP = new THREE.Vector3(0, 1, 0);
 
 const materialCache = new Map();
@@ -153,6 +154,12 @@ function textured(color, textureName, uvScale) {
   return material;
 }
 
+function gained(textureName, uvScale, [red, green, blue]) {
+  const material = textured(0xffffff, textureName, uvScale);
+  material.color.setRGB(red, green, blue);
+  return material;
+}
+
 function createAlphaCanvasTexture(size, draw) {
   const canvas = createCanvas(size, size);
   draw(canvas.getContext('2d'), size, createSeededRandom(size));
@@ -160,13 +167,13 @@ function createAlphaCanvasTexture(size, draw) {
 }
 
 function drawGrassTuft(context, size, random) {
-  for (let blade = 0; blade < 46; blade++) {
-    const baseX = size * (0.18 + random() * 0.64);
-    const lean = (random() - 0.5) * size * 0.5;
-    const height = size * (0.45 + random() * 0.55);
-    const shade = 150 + random() * 90;
-    context.strokeStyle = `rgb(${shade}, ${shade * 0.86}, ${shade * 0.52})`;
-    context.lineWidth = 1.2 + random() * 1.8;
+  for (let blade = 0; blade < TUFT_BLADES; blade++) {
+    const baseX = size * (0.12 + random() * 0.76);
+    const lean = (random() - 0.5) * size * 0.6;
+    const height = size * (0.3 + random() * 0.7);
+    const shade = 120 + random() * 80;
+    context.strokeStyle = `rgb(${shade * 0.92}, ${shade * 0.82}, ${shade * 0.66})`;
+    context.lineWidth = 0.8 + random() * 1.2;
     context.beginPath();
     context.moveTo(baseX, size);
     context.quadraticCurveTo(baseX + lean * 0.3, size - height * 0.6, baseX + lean, size - height);
@@ -255,14 +262,14 @@ const MATERIAL_FACTORIES = {
   tarpBlack: () => standard(0x2a2b2e, 0.42, 0, { flatShading: true, side: THREE.DoubleSide }),
   stucco: () => plastered(0xf3e9d6, 3),
   concrete: () => plastered(0xc4c2bc, 2.2),
-  basaltWall: () => textured(0xb8b2ac, 'dark_rock_02', 2.4),
-  oliveMetal: () => textured(0xc4bc8a, 'green_metal_rust', 2.6),
-  asphaltSlab: () => textured(0x8b95ae, 'dense_sand', 2.5),
-  earth: () => textured(0xb6a083, 'road_damaged', 3),
+  basaltWall: () => gained('dark_rock_02', 2.4, [1.4, 1.4, 1.4]),
+  oliveMetal: () => gained('green_metal_rust', 2.6, [1.9, 1.55, 1.75]),
+  asphaltSlab: () => gained('road_damaged', 2.5, [1.7, 2.8, 4.2]),
+  earth: () => gained('road_damaged', 3, [2.8, 2.9, 3.0]),
   paint: () => lambert(0xffffff, { vertexColors: true }),
   glass: () => standard(0x24323b, 0.18, 0.55),
   foliage: () => lambert(0xffffff, { vertexColors: true, flatShading: true }),
-  rock: () => textured(0x8c8a88, 'dark_rock_02', 1),
+  rock: () => gained('dark_rock_02', 1, [4, 4, 4]),
   grassTuft: () => alphaLambert(drawGrassTuft, 128),
   camoNet: () => alphaLambert(drawCamoNet, 256),
   fenceMesh: () => alphaLambert(drawChainLink, 64, { alphaTest: 0.3 }),

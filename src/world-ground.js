@@ -139,6 +139,15 @@ export function createSplat() {
 }
 
 const TERRAIN_UNIFORMS_GLSL = `
+const vec3 LUMA = vec3(0.2126, 0.7152, 0.0722);
+const vec3 GOLAN_GRASS_TINT = vec3(2.6, 2.5, 4.0);
+const vec3 GOLAN_STRAW_TINT = vec3(0.86, 0.74, 0.52);
+const float GOLAN_DESATURATION = 0.25;
+const vec3 GOLAN_DIRT_TINT = vec3(3.4, 3.9, 3.65);
+const vec3 GOLAN_GRAVEL_TINT = vec3(3.4, 2.6, 1.8);
+const float GOLAN_ROCK_GAIN = 3.8;
+const float ASPHALT_GAIN = 0.75;
+const float ASPHALT_LIFT = 0.06;
 uniform sampler2D tSplat;
 uniform sampler2D tSand;
 uniform sampler2D tGrass;
@@ -157,22 +166,23 @@ vec4 sp = texture2D(tSplat, (wp - splatRect.xy) / splatRect.zw);
 float patchN = 0.5 + 0.25 * sin(wp.x * 0.061 + sin(wp.y * 0.047) * 2.3) + 0.25 * sin(wp.y * 0.053 + sin(wp.x * 0.029) * 1.9);
 float macro = 0.5 + 0.5 * sin(wp.x * 0.013 + 1.7 + sin(wp.y * 0.009) * 2.0) * sin(wp.y * 0.011 - 0.6);
 vec3 sand = texture2D(tSand, wp * 0.15).rgb * mix(0.88, 1.08, macro);
-vec3 grass = texture2D(tGrass, wp * 0.19).rgb * vec3(1.0, 0.92, 0.56);
-vec3 straw = texture2D(tStraw, wp * 0.17).rgb * vec3(0.64, 0.55, 0.38);
+vec3 grass = texture2D(tGrass, wp * 0.19).rgb * GOLAN_GRASS_TINT;
+vec3 straw = texture2D(tStraw, wp * 0.17).rgb * GOLAN_STRAW_TINT;
 vec3 golan = mix(grass, straw, smoothstep(0.3, 0.7, patchN)) * mix(0.8, 1.1, macro);
+golan = mix(golan, vec3(dot(golan, LUMA)), GOLAN_DESATURATION);
 vec3 dirt = texture2D(tDirt, wp * 0.2).rgb;
 vec3 rockTex = texture2D(tRock, wp * 0.11).rgb;
 float desert = smoothstep(desertEdge.y, desertEdge.x, wp.y);
 float slope = 1.0 - clamp(vTerrainNormal.y, 0.0, 1.0);
 vec3 groundCol = mix(golan, sand, desert);
-groundCol = mix(groundCol, mix(dirt * vec3(0.82, 0.74, 0.66), sand * vec3(0.84, 0.77, 0.66), desert), clamp(sp.g + smoothstep(0.12, 0.3, slope) * 0.6, 0.0, 1.0));
-vec3 gravelCol = mix(vec3(dot(dirt, vec3(0.33))) * vec3(0.66, 0.63, 0.6), sand * vec3(0.95, 0.85, 0.7), desert);
+groundCol = mix(groundCol, mix(dirt * GOLAN_DIRT_TINT, sand * vec3(0.84, 0.77, 0.66), desert), clamp(sp.g + smoothstep(0.12, 0.3, slope) * 0.6, 0.0, 1.0));
+vec3 gravelCol = mix(vec3(dot(dirt, LUMA)) * GOLAN_GRAVEL_TINT, sand * vec3(0.95, 0.85, 0.7), desert);
 groundCol = mix(groundCol, gravelCol, sp.a * 0.85);
 float rockW = clamp(sp.b * 0.9 + smoothstep(0.22, 0.45, slope) * 0.7, 0.0, 1.0);
-groundCol = mix(groundCol, mix(rockTex * 0.8, rockTex * vec3(1.9, 1.75, 1.45), desert), rockW);
+groundCol = mix(groundCol, mix(rockTex * GOLAN_ROCK_GAIN, rockTex * vec3(1.9, 1.75, 1.45), desert), rockW);
 float elev = smoothstep(2.5, 13.0, vTerrainPos.y) * (1.0 - desert);
-groundCol = mix(groundCol, mix(rockTex * 0.7, grass * vec3(0.5, 0.56, 0.38), 0.55), elev * 0.7);
-vec3 asphaltCol = vec3(dot(rockTex, vec3(0.33))) * 0.6 + 0.03;
+groundCol = mix(groundCol, mix(rockTex * GOLAN_ROCK_GAIN, golan * 0.85, 0.55), elev * 0.7);
+vec3 asphaltCol = vec3(dot(rockTex, vec3(0.33))) * ASPHALT_GAIN + ASPHALT_LIFT;
 groundCol = mix(groundCol, asphaltCol, sp.r);
 diffuseColor.rgb *= groundCol;
 `;
@@ -198,6 +208,6 @@ export function createTerrainMaterial(splatTexture) {
       .replace('#include <common>', `#include <common>\n${TERRAIN_UNIFORMS_GLSL}`)
       .replace('#include <map_fragment>', TERRAIN_COLOR_GLSL);
   };
-  material.customProgramCacheKey = () => 'terrain-splat-v2';
+  material.customProgramCacheKey = () => 'terrain-splat-v3';
   return material;
 }

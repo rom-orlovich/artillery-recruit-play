@@ -13,6 +13,9 @@ const WINDOW_SPACING = 2.6;
 const STONE_COUNT = 260;
 const SHRUB_COUNT = 1100;
 
+export const PARK_HERO = { x: 24, y: 0, z: 18, ry: -Math.PI / 2 };
+export const PARK_CREW = { members: [[-2.5, -0.6]], facing: -1.2 };
+
 const footprint = (id) => FOOTPRINTS.find((fp) => fp.id === id);
 
 function addRenovatedBuilding(bake, fp, options = {}) {
@@ -107,14 +110,13 @@ function addHowitzerPark(bake, heroSpots) {
     bake.mesh('paint', new THREE.CylinderGeometry(0.12, 0.14, 6.4, 8), px, 3.2, pz, 0, 0x7d8285);
   }
   bake.box('paint', 17, 0.1, 23, 24, 6.45, 22, 0, 0xd9cfb2);
-  heroSpots.push({ x: 24, y: 0, z: 18, ry: -Math.PI / 2 });
+  heroSpots.push({ ...PARK_HERO, crew: PARK_CREW });
   addCollider(REGION, 24, 18, 6.6, 3.4, 3.2);
   addRoem(bake, 24.4, 0, 28, -Math.PI / 2);
   addCollider(REGION, 24.4, 28, 9, 2.6, 3.2);
   addSign(bake, 'פארק תומ"תים — הדרכה', 16, 2.2, 22, Math.PI / 2, 4.6, 1.0, { bg: '#2b3b2a' });
   const pallet = createShellPallet();
   for (const [x, z] of [[10.2, 21.6], [13.6, 21.6], [10.2, 23.2]]) bake.object(pallet, x, 0, z, 0);
-  addSoldier(bake, 21.5, 3.05, 17.4, -1.2);
   addSoldier(bake, 18.6, 0, 22.6, 2.2, 'arms');
 }
 

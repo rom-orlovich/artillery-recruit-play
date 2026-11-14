@@ -14,18 +14,50 @@ const REGION = 'line';
 const SHELL_ROW = 8;
 const BOULDER_COUNT = 360;
 const PEBBLE_COUNT = 950;
-const TUFT_COUNT = 4200;
+const TUFT_COUNT = 7000;
 const FIELD = { minX: -205, maxX: 205, minZ: -440, maxZ: -205 };
 const TUFT_CHUNK = 140;
+const TUFT_SCALE = [0.32, 0.72];
+const TUFT_SPARSITY = 0.3;
+const STRAW = [0xb3a993, 0xa69a82, 0x988d78, 0xab9f8a, 0x8f8676];
+const BASALT = 0xb8b4ac;
+const LICHEN = 0xe2ded2;
+const GREY_STONE = 0xa29d94;
+const PALE_STONE = 0xf0ece2;
+const CAIRN_STONES = [0x6a655d, 0x5c574f, 0x4a4640, 0x8e887c];
 const TUFT_RANGE = 65;
 const OUTPOST_RANGE = 210;
 const CAMO_GUNS = ['A1', 'B2'];
-const CREW = { A2: [[0.6, 0.4], [-0.5, 1.6]], A1: [[0.3, 1.2]], B1: [[-0.4, 0.8]] };
+const CREW_RAY_LIFT = 1;
+const DOWN = new THREE.Vector3(0, -1, 0);
+const raycaster = new THREE.Raycaster();
+
+export const GUN_CREW = { A2: [[0.6, 0.4], [-0.5, 1.6]], A1: [[0.3, 1.2]], B1: [[-0.4, 0.8]] };
+export const GUN_CREW_FACING = Math.PI * 0.8;
+export const FOOT_OFFSETS = [[-0.11, 0.04], [0.11, 0.04]];
 
 function shellGeometry() {
   const profile = [[0, 0], [0.078, 0], [0.078, 0.05], [0.081, 0.06], [0.078, 0.08], [0.078, 0.5], [0.066, 0.62], [0.044, 0.72], [0.026, 0.79], [0.012, 0.82], [0, 0.825]];
   return new THREE.LatheGeometry(profile.map(([r, y]) => new THREE.Vector2(r, y)), 7);
 }
+
+function surfaceTop(support, x, z) {
+  support.updateMatrixWorld(true);
+  const top = new THREE.Box3().setFromObject(support).max.y + CREW_RAY_LIFT;
+  raycaster.set(new THREE.Vector3(x, top, z), DOWN);
+  return raycaster.intersectObject(support, true)[0]?.point.y ?? ground(x, z);
+}
+
+export function addGunCrew(bake, support, { members, facing }, x, z) {
+  const cos = Math.cos(facing);
+  const sin = Math.sin(facing);
+  for (const [dx, dz] of members) {
+    const feet = FOOT_OFFSETS.map(([fx, fz]) => surfaceTop(support, x + dx + fx * cos + fz * sin, z + dz - fx * sin + fz * cos));
+    addSoldier(bake, x + dx, Math.max(...feet), z + dz, facing);
+  }
+}
+
+const crewOf = (gunId) => ({ members: GUN_CREW[gunId], facing: GUN_CREW_FACING });
 
 function addCamoNet(bake, cx, cz, w, d, height, seed) {
   const random = createSeededRandom(seed);
@@ -51,8 +83,14 @@ function addGuns(bake, heroSpots, shell) {
     const [rx, rz] = gun.rear;
     const bodyZ = rz + GUN_BODY_OFFSET;
     const y = ground(rx, bodyZ);
-    if (gun.hero) heroSpots.push({ x: rx, y, z: bodyZ, ry: 0 });
-    else addDoher(bake, rx, y, bodyZ, 0, 0.04 + Math.abs(rx % 3) * 0.04);
+    const elevation = 0.04 + Math.abs(rx % 3) * 0.04;
+    if (gun.hero) heroSpots.push({ x: rx, y, z: bodyZ, ry: 0, crew: crewOf(gun.id) });
+    else addDoher(bake, rx, y, bodyZ, 0, elevation);
+    if (!gun.hero && GUN_CREW[gun.id]) {
+      const probe = createBake();
+      addDoher(probe, rx, y, bodyZ, 0, elevation);
+      addGunCrew(bake, probe.build('crew-probe'), crewOf(gun.id), rx, bodyZ);
+    }
     addCollider(REGION, rx, bodyZ, 3.4, 6.6, 3.2);
     for (let i = 0; i < SHELL_ROW; i++) {
       const sx = rx - 3.5 + (i % 2) * 0.22;
@@ -68,7 +106,6 @@ function addGuns(bake, heroSpots, shell) {
       bake.box('paint', 0.62, 0.36, 1.1, cx, ground(cx, cz) + 0.18 + (i === 4 ? 0.36 : 0), cz, 0.05 * i, i % 2 ? 0x5a6534 : 0x6b5638);
     }
     if (CAMO_GUNS.includes(gun.id)) addCamoNet(bake, rx, bodyZ + 0.5, 8.5, 9, 4.6, rx * 3);
-    for (const [dx, dz] of CREW[gun.id] || []) addSoldier(bake, rx + dx, y + 3.05, bodyZ + dz, Math.PI * 0.8);
   }
   addSoldier(bake, -9.6, ground(-9.6, -287.6), -287.6, 2.4, 'arms');
   addSoldier(bake, -4.0, ground(-4.0, -287.4), -287.4, -2.0);
@@ -113,7 +150,7 @@ function addSignCairn(bake) {
     const a = random() * Math.PI * 2;
     const r = (1.1 - layer * 0.35) * Math.sqrt(random());
     const s = 0.8 + random() * 0.9;
-    const tone = random() > 0.82 ? 0x8a867c : 0x34322f;
+    const tone = CAIRN_STONES[Math.floor(random() * CAIRN_STONES.length)];
     bake.mesh('paint', stone, cx + Math.cos(a) * r * 1.4, y + 0.18 + layer * 0.32, cz + Math.sin(a) * r * 0.7, random() * 3, tone, random(), random(), s * 1.2, s * 0.8, s);
   }
   const ry = -0.62;
@@ -195,7 +232,7 @@ function addScatter(group) {
     if (blocked(x, z, 1.5) || fbm(x * 0.02 + 5, z * 0.02, 2) < 0.4) continue;
     const s = 0.35 + Math.pow(random(), 2.4) * 1.7;
     boulders.push(composeMatrix(x, ground(x, z) + s * 0.1, z, random() * 3, random() * 6, random() * 3, s * 1.25, s * 0.7, s));
-    boulderColors.push(new THREE.Color(random() > 0.9 ? 0x9c968a : 0x55524f).multiplyScalar(0.7 + random() * 0.5));
+    boulderColors.push(new THREE.Color(random() > 0.85 ? LICHEN : BASALT).multiplyScalar(0.75 + random() * 0.5));
   }
   const pebbles = [];
   const pebbleColors = [];
@@ -205,17 +242,16 @@ function addScatter(group) {
     if (blocked(x, z, -1.5)) continue;
     const s = 0.08 + random() * 0.16;
     pebbles.push(composeMatrix(x, ground(x, z) + s * 0.2, z, random() * 3, random() * 6, 0, s * 1.4, s * 0.8, s));
-    pebbleColors.push(new THREE.Color(random() > 0.85 ? 0xc4bfb4 : 0x343335).multiplyScalar(0.8 + random() * 0.4));
+    pebbleColors.push(new THREE.Color(random() > 0.8 ? PALE_STONE : GREY_STONE).multiplyScalar(0.8 + random() * 0.4));
   }
   const tufts = [];
   const tuftColors = [];
-  const palette = [0xb39a5c, 0x9b8148, 0x8a7b48, 0xa3925e, 0x7f7a4a];
   while (tufts.length < TUFT_COUNT) {
     const [x, z] = random() < 0.65 ? [-130 + random() * 260, -210 - random() * 160] : sample();
-    if (blocked(x, z, -1) || fbm(x * 0.05, z * 0.05 + 3, 2) < 0.36) continue;
-    const s = 0.55 + random() * 0.75;
-    tufts.push(composeMatrix(x, ground(x, z) - 0.03, z, 0, random() * 6, 0, s * 1.1, s * (0.8 + random() * 0.6), s * 1.1));
-    tuftColors.push(new THREE.Color(palette[Math.floor(random() * palette.length)]).multiplyScalar(0.7 + random() * 0.4));
+    if (blocked(x, z, -1) || fbm(x * 0.05, z * 0.05 + 3, 2) < TUFT_SPARSITY) continue;
+    const s = TUFT_SCALE[0] + random() * (TUFT_SCALE[1] - TUFT_SCALE[0]);
+    tufts.push(composeMatrix(x, ground(x, z) - 0.03, z, 0, random() * 6, 0, s * 1.2, s * (0.8 + random() * 0.6), s * 1.2));
+    tuftColors.push(new THREE.Color(STRAW[Math.floor(random() * STRAW.length)]).multiplyScalar(0.8 + random() * 0.35));
   }
   group.add(createInstanced(new THREE.DodecahedronGeometry(0.55, 0), 'rock', boulders, boulderColors));
   group.add(createInstanced(new THREE.OctahedronGeometry(1, 0), 'rock', pebbles, pebbleColors));

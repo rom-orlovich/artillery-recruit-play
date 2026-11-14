@@ -14,19 +14,25 @@ const RIDGES = [
 const ATMOSPHERES = {
   shivta: {
     zenith: '#4f86c4', horizon: '#eadfc6', horizonAway: '#dcd8c8', ground: '#d9c7a2', sunColor: '#fff2da', sunLight: '#fff1d8',
-    sunDir: [0.42, 0.66, 0.4], lightDir: [0.42, 0.66, 0.4], sunIntensity: 2.4, hemiSky: '#dbe6f0', hemiGround: '#b89e70', hemiIntensity: 1.05,
-    fog: '#e2d4b6', fogDensity: 0.0026, clouds: 0.2, rays: 0, ridgeNear: '#b39b78', ridgeFar: '#cfbea0', exposure: 1.0, envIntensity: 0.45
+    sunDir: [0.42, 0.66, 0.4], lightDir: [0.42, 0.66, 0.4], sunIntensity: 2.6, hemiSky: '#dbe6f0', hemiGround: '#b89e70', hemiIntensity: 2.2,
+    fog: '#e2d4b6', fogDensity: 0.0026, clouds: 0.2, rays: 0, ridgeNear: '#b39b78', ridgeFar: '#cfbea0', exposure: 1.0, envIntensity: 0.6
   },
   yoav: {
     zenith: '#46698f', horizon: '#d6d6d0', horizonAway: '#bcc6cc', ground: '#9a9d9a', sunColor: '#fbeedc', sunLight: '#f6ead6',
-    sunDir: [-0.45, 0.42, -0.5], lightDir: [-0.45, 0.48, -0.5], sunIntensity: 2.0, hemiSky: '#cfd9e2', hemiGround: '#5e5a50', hemiIntensity: 1.1,
-    fog: '#aab3b8', fogDensity: 0.0026, clouds: 0.62, rays: 0.15, ridgeNear: '#4b5052', ridgeFar: '#7d858b', exposure: 1.0, envIntensity: 0.4
+    sunDir: [-0.45, 0.42, -0.5], lightDir: [-0.45, 0.48, -0.5], sunIntensity: 3.0, hemiSky: '#cfd9e2', hemiGround: '#5e5a50', hemiIntensity: 2.6,
+    fog: '#aab3b8', fogDensity: 0.0026, clouds: 0.62, rays: 0.15, ridgeNear: '#4b5052', ridgeFar: '#7d858b', exposure: 1.0, envIntensity: 0.6
   },
   line: {
-    zenith: '#3d5f8e', horizon: '#ffae58', horizonAway: '#aebbcb', ground: '#a87a5a', sunColor: '#ffb25e', sunLight: '#ffc27e',
-    sunDir: [-0.76, 0.045, -0.64], lightDir: [-0.74, 0.27, -0.62], sunIntensity: 2.6, hemiSky: '#f0c49c', hemiGround: '#6e5c48', hemiIntensity: 1.2,
-    fog: '#9d938e', fogDensity: 0.0025, clouds: 0.58, rays: 1, ridgeNear: '#2f2a31', ridgeFar: '#5b4a4e', exposure: 1.05, envIntensity: 0.35
+    zenith: '#7e9cc4', horizon: '#dfe0dc', horizonAway: '#cfd6dc', ground: '#8f8272', sunColor: '#fff4e2', sunLight: '#fff4e2',
+    sunDir: [-0.35, 0.62, -0.5], lightDir: [-0.35, 0.62, -0.5], sunIntensity: 2.2, hemiSky: '#dfe7ef', hemiGround: '#8a7458', hemiIntensity: 3.5,
+    fog: '#c9ccc8', fogDensity: 0.0022, clouds: 0.48, rays: 0, ridgeNear: '#6f6b63', ridgeFar: '#9da3a6', exposure: 1.1, envIntensity: 0.6
   }
+};
+
+export const LINE_DUSK = {
+  zenith: '#3d5f8e', horizon: '#ffae58', horizonAway: '#aebbcb', ground: '#a87a5a', sunColor: '#ffb25e', sunLight: '#ffc27e',
+  sunDir: [-0.76, 0.045, -0.64], lightDir: [-0.74, 0.27, -0.62], sunIntensity: 2.6, hemiSky: '#f0c49c', hemiGround: '#6e5c48', hemiIntensity: 1.2,
+  fog: '#9d938e', fogDensity: 0.0025, clouds: 0.58, rays: 1, ridgeNear: '#2f2a31', ridgeFar: '#5b4a4e', exposure: 1.05, envIntensity: 0.35
 };
 
 const SKY_VERTEX = `
