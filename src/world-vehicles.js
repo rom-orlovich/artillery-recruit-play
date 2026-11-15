@@ -1,19 +1,19 @@
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { createSeededRandom } from './props/materials.js';
-import { composeMatrix } from './world-kit.js';
+import { composeMatrix, createBake, ground } from './world-kit.js';
+import { registerSoldier } from './world-soldiers.js';
+import { collectPivotGeometry, doherMaterial, loadDoherTemplate } from './world-doher.js';
 
-const HERO_URL = './assets/models/m109-doher-lod.glb';
-const HERO_SCALE = [7.0, 7.4, 9.2];
-const HERO_TINT = 0xd8d2a6;
-const HERO_FORWARD_SHIFT = 1.5;
+const DOHER_LOD_DISTANCE = 55;
 const TRACK_COLOR = 0x2a2a27;
 const WHEEL_COLOR = 0x3a3b36;
 const DARK_COLOR = 0x30322b;
-const UNIFORM_COLOR = 0x5d6342;
-const SKIN_COLOR = 0xc79c78;
-const HELMET_COLOR = 0x4c5237;
-const BOOT_COLOR = 0x2b2a26;
+const CREW_RAY_LIFT = 1;
+export const FOOT_OFFSETS = [[-0.11, 0.04], [0.11, 0.04]];
+const DOWN = new THREE.Vector3(0, -1, 0);
+const crewRaycaster = new THREE.Raycaster();
+const pendingDohers = new Set();
+let sharedPlaceholderGeom = null;
 
 const cylinder = (rt, rb, h, seg = 10) => new THREE.CylinderGeometry(rt, rb, h, seg);
 const wheelGeometry = (r, w) => new THREE.CylinderGeometry(r, r, w, 12).rotateZ(Math.PI / 2);
@@ -98,17 +98,7 @@ export function addAlfa(bake, x, y, z, ry = 0) {
 }
 
 export function addSoldier(bake, x, y, z, ry = 0, pose = 'stand') {
-  const p = placer(bake, x, y, z, ry);
-  const crouch = pose === 'sit' ? 0.45 : 0;
-  for (const side of [-1, 1]) {
-    p.box('paint', 0.17, 0.82 - crouch, 0.2, side * 0.11, (0.82 - crouch) / 2, pose === 'sit' ? 0.25 : 0, UNIFORM_COLOR);
-    p.box('paint', 0.18, 0.12, 0.28, side * 0.11, 0.06, pose === 'sit' ? 0.3 : 0.04, BOOT_COLOR);
-    p.box('paint', 0.13, 0.58, 0.14, side * 0.3, 1.18 - crouch, pose === 'arms' ? -0.18 : 0, UNIFORM_COLOR, pose === 'arms' ? 0.9 : 0.05);
-  }
-  p.box('paint', 0.46, 0.62, 0.28, 0, 1.18 - crouch, 0, UNIFORM_COLOR);
-  p.box('paint', 0.5, 0.3, 0.32, 0, 1.3 - crouch, -0.02, 0x4a5236);
-  p.put('paint', new THREE.SphereGeometry(0.12, 8, 6), 0, 1.62 - crouch, 0, SKIN_COLOR);
-  p.put('paint', new THREE.SphereGeometry(0.155, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2), 0, 1.66 - crouch, 0, HELMET_COLOR);
+  registerSoldier(x, y, z, ry, pose);
 }
 
 function crown(bake, cx, cy, cz, radius, squash, color, seed) {
@@ -147,25 +137,63 @@ export function addTree(bake, x, y, z, kind, seed = 1) {
   else crown(bake, x, y + trunkH + 0.9 * s, z, 1.9 * s, 0.75, 0x7f8a6a, seed);
 }
 
-export function loadHeroDoher(placements, onLoaded) {
-  new GLTFLoader().load(HERO_URL, (gltf) => {
-    const source = gltf.scene.getObjectByProperty('isMesh', true);
-    if (!source) return;
-    const material = new THREE.MeshLambertMaterial({ map: source.material.map, color: HERO_TINT });
-    source.geometry.computeBoundingBox();
-    const box = source.geometry.boundingBox;
-    const lift = -box.min.y * HERO_SCALE[1];
-    const meshes = placements.map((placement) => {
-      const mesh = new THREE.Mesh(source.geometry, material);
-      mesh.name = 'hero-doher';
-      mesh.scale.set(...HERO_SCALE);
-      mesh.position.set(placement.x - Math.sin(placement.ry) * HERO_FORWARD_SHIFT, placement.y + lift, placement.z - Math.cos(placement.ry) * HERO_FORWARD_SHIFT);
-      mesh.rotation.y = placement.ry + Math.PI;
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      placement.group.add(mesh);
-      return mesh;
-    });
-    onLoaded(meshes);
-  }, undefined, () => {});
+function surfaceTop(support, x, z) {
+  support.updateMatrixWorld(true);
+  const top = new THREE.Box3().setFromObject(support).max.y + CREW_RAY_LIFT;
+  crewRaycaster.set(new THREE.Vector3(x, top, z), DOWN);
+  return crewRaycaster.intersectObject(support, true)[0]?.point.y ?? ground(x, z);
+}
+
+export function addGunCrew(slot, { members, facing }, x, z, gunId = null) {
+  const cos = Math.cos(facing);
+  const sin = Math.sin(facing);
+  for (const [dx, dz] of members) {
+    const sx = x + dx;
+    const sz = z + dz;
+    const feet = FOOT_OFFSETS.map(([fx, fz]) => surfaceTop(slot, sx + fx * cos + fz * sin, sz - fx * sin + fz * cos));
+    registerSoldier(sx, Math.max(...feet), sz, facing, 'stand', gunId, slot);
+  }
+}
+
+function getDoherPlaceholderGeometry() {
+  if (!sharedPlaceholderGeom) {
+    const bake = createBake();
+    const inputs = new Set();
+    const tracker = { add: (m, g, mat, c) => { inputs.add(g); bake.add(m, g, mat, c); } };
+    addDoher(tracker, 0, 0, 0, 0, 0.04);
+    const group = bake.build('doher-placeholder', false);
+    for (const g of inputs) g.dispose();
+    sharedPlaceholderGeom = collectPivotGeometry(group, new Set()) || new THREE.BufferGeometry();
+  }
+  return sharedPlaceholderGeom;
+}
+
+export function placeDoher(parent, x, y, z, ry = 0, elevation = 0.04) {
+  const slot = new THREE.LOD();
+  slot.name = 'doher';
+  slot.position.set(x, y, z);
+  slot.rotation.y = ry;
+  parent.add(slot);
+  const placeholder = new THREE.Mesh(getDoherPlaceholderGeometry(), doherMaterial);
+  placeholder.name = 'doher-placeholder';
+  placeholder.castShadow = false;
+  placeholder.receiveShadow = true;
+  slot.addLevel(placeholder, 0);
+  const task = loadDoherTemplate().then((template) => {
+    if (!template) return;
+    const model = template.clone(true);
+    const barrelObj = model.getObjectByName('doher-barrel');
+    if (barrelObj) barrelObj.rotation.x = elevation;
+    slot.remove(placeholder);
+    slot.levels.length = 0;
+    slot.addLevel(model, 0);
+    slot.addLevel(placeholder, DOHER_LOD_DISTANCE);
+    placeholder.visible = false;
+  }).finally(() => pendingDohers.delete(task));
+  pendingDohers.add(task);
+  return slot;
+}
+
+export function whenDohersReady() {
+  return Promise.all([...pendingDohers]);
 }

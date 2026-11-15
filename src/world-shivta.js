@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { FOOTPRINTS, WALLS, TREES } from './world-layout.js';
 import { createBake, addCollider, addSegmentCollider, addSign, ground, createInstanced, createInstancedChunks, composeMatrix, addFenceRun } from './world-kit.js';
-import { addRoem, addSoldier, addTree } from './world-vehicles.js';
+import { addRoem, addSoldier, addTree, placeDoher, addGunCrew } from './world-vehicles.js';
 import { createShellPallet } from './props/shell-pallet.js';
 import { createSeededRandom } from './props/materials.js';
 import { fbm } from './world-terrain.js';
@@ -103,14 +103,15 @@ function addParadeGround(bake) {
   addCollider(REGION, 0, 27.7, 13, 0.6, 1.8);
 }
 
-function addHowitzerPark(bake, heroSpots) {
+function addHowitzerPark(bake, group) {
   const park = footprint('shivtaPark');
   bake.box('concrete', park.w, 0.1, park.d, park.x, 0.05, park.z);
   for (const [px, pz] of [[16, 11], [32, 11], [16, 33], [32, 33], [24, 11], [24, 33]]) {
     bake.mesh('paint', new THREE.CylinderGeometry(0.12, 0.14, 6.4, 8), px, 3.2, pz, 0, 0x7d8285);
   }
   bake.box('paint', 17, 0.1, 23, 24, 6.45, 22, 0, 0xd9cfb2);
-  heroSpots.push({ ...PARK_HERO, crew: PARK_CREW });
+  const slot = placeDoher(group, PARK_HERO.x, PARK_HERO.y, PARK_HERO.z, PARK_HERO.ry, 0.04);
+  addGunCrew(slot, PARK_CREW, PARK_HERO.x, PARK_HERO.z, 'shivta-park');
   addCollider(REGION, 24, 18, 6.6, 3.4, 3.2);
   addRoem(bake, 24.4, 0, 28, -Math.PI / 2);
   addCollider(REGION, 24.4, 28, 9, 2.6, 3.2);
@@ -202,7 +203,7 @@ export function createTuftGeometry() {
   return geometry;
 }
 
-export function buildShivta(scene, heroSpots) {
+export function buildShivta(scene) {
   const group = new THREE.Group();
   group.name = 'region-shivta';
   const bake = createBake();
@@ -230,7 +231,7 @@ export function buildShivta(scene, heroSpots) {
   }
   addGate(bake);
   addParadeGround(bake);
-  addHowitzerPark(bake, heroSpots);
+  addHowitzerPark(bake, group);
   addRange(bake);
   addFieldTraining(bake);
   TREES.filter(([, z]) => z > -128).forEach(([x, z, kind], i) => {

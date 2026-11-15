@@ -4,13 +4,14 @@ import { REGIONS } from './world-layout.js';
 import { resetWorldKit, colliders, worldShootables, regionShootables, distanceCulled, createBake } from './world-kit.js';
 import { getTerrainHeight, createTerrainTiles, createBermMesh, smoothstep } from './world-terrain.js';
 import { createSplat, createTerrainMaterial } from './world-ground.js';
-import { createSky } from './world-sky.js';
+import { createSky, disposeSky } from './world-sky.js';
+import { getSkyPhase, setTimeOfDay, advanceGameClock } from './world-time.js';
 import { buildShivta } from './world-shivta.js';
 import { buildYoav } from './world-yoav.js';
-import { buildLine, addGunCrew } from './world-line.js';
-import { addDoher, loadHeroDoher } from './world-vehicles.js';
+import { buildLine } from './world-line.js';
+import { resetSoldiers, initSoldiers, updateSoldiers } from './world-soldiers.js';
 
-export { colliders, worldShootables, getTerrainHeight };
+export { colliders, worldShootables, getTerrainHeight, getSkyPhase, setTimeOfDay };
 
 const CONTENT_RECTS = {
   shivta: [-210, 210, -125, 100],
@@ -20,7 +21,6 @@ const CONTENT_RECTS = {
 const REGION_VIEW_DISTANCE = { shivta: 30, yoav: 80, line: 120 };
 const TILE_VIEW_DISTANCE = 380;
 const SHADOW_EXTENT = 70;
-const HERO_RANGE = 55;
 const H_FOV = 95;
 const V_FOV_MIN = 40;
 const V_FOV_MAX = 72;
@@ -31,7 +31,7 @@ const FLAG_SPOTS = [
 ];
 
 const animatedFlags = [];
-const state = { scene: null, camera: null, renderer: null, sky: null, regions: {}, tiles: [], heroes: [], activeRegion: null, lastKey: '' };
+const state = { scene: null, camera: null, renderer: null, sky: null, regions: {}, tiles: [], activeRegion: null, lastKey: '', lastSkyTimeSec: null };
 export const splatInfo = { data: null, size: 0 };
 
 function distanceToRect(x, z, [minX, maxX, minZ, maxZ]) {
@@ -91,37 +91,6 @@ function addFlags() {
   }
 }
 
-function seatCrew(hero, support) {
-  if (hero.crew) {
-    hero.spot.group.remove(hero.crew);
-    hero.crew.children.forEach((mesh) => mesh.geometry.dispose());
-  }
-  const bake = createBake();
-  addGunCrew(bake, support, hero.spot.crew, hero.spot.x, hero.spot.z);
-  hero.crew = bake.build('hero-crew');
-  hero.spot.group.add(hero.crew);
-}
-
-function addHeroGuns(heroSpots) {
-  state.heroes = heroSpots.map((spot) => {
-    spot.group = state.regions[spot.z > -128 ? 'shivta' : 'line'];
-    const bake = createBake();
-    addDoher(bake, spot.x, spot.y, spot.z, spot.ry);
-    const fallback = bake.build('hero-fallback');
-    spot.group.add(fallback);
-    const hero = { spot, fallback, mesh: null, crew: null };
-    seatCrew(hero, fallback);
-    return hero;
-  });
-  loadHeroDoher(heroSpots, (meshes) => {
-    meshes.forEach((mesh, i) => {
-      state.heroes[i].mesh = mesh;
-      seatCrew(state.heroes[i], mesh);
-    });
-    state.lastKey = '';
-  });
-}
-
 function setupRenderer(canvas, isMobile) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: !isMobile, powerPreference: 'high-performance', stencil: false });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
@@ -156,6 +125,7 @@ function setupShadows(sun, isMobile) {
 
 export function createWorld(canvas, isMobile) {
   resetWorldKit();
+  resetSoldiers();
   animatedFlags.length = 0;
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(V_FOV_MAX, window.innerWidth / window.innerHeight, 0.15, 1700);
@@ -165,6 +135,7 @@ export function createWorld(canvas, isMobile) {
   state.scene = scene;
   state.camera = camera;
   state.renderer = renderer;
+  disposeSky();
   state.sky = createSky(scene, renderer);
   setupShadows(state.sky.sun, isMobile);
 
@@ -175,17 +146,17 @@ export function createWorld(canvas, isMobile) {
   state.tiles = createTerrainTiles(terrainMaterial);
   for (const tile of state.tiles) scene.add(tile);
 
-  const heroSpots = [];
   state.regions = {
-    shivta: buildShivta(scene, heroSpots),
+    shivta: buildShivta(scene),
     yoav: buildYoav(scene),
-    line: buildLine(scene, heroSpots)
+    line: buildLine(scene)
   };
   state.regions.line.add(createBermMesh(terrainMaterial));
   addFlags();
-  addHeroGuns(heroSpots);
+  initSoldiers(scene, (x, z) => state.regions[getRegionAt(x, z)] ?? scene);
   state.activeRegion = null;
   state.lastKey = '';
+  state.lastSkyTimeSec = null;
   updateWorldAnimations(0);
 
   window.addEventListener('resize', () => {
@@ -204,11 +175,6 @@ function updateRegions(x, z) {
   }
   for (const tile of state.tiles) tile.visible = distanceToRect(x, z, tile.userData.tileRect) < TILE_VIEW_DISTANCE;
   for (const entry of distanceCulled) entry.object.visible = Math.hypot(x - entry.x, z - entry.z) < entry.range;
-  for (const hero of state.heroes) {
-    const near = Math.hypot(x - hero.spot.x, z - hero.spot.z) < HERO_RANGE;
-    if (hero.mesh) hero.mesh.visible = near;
-    hero.fallback.visible = !near || !hero.mesh;
-  }
   const active = getRegionAt(x, z);
   if (active !== state.activeRegion) {
     state.activeRegion = active;
@@ -232,11 +198,15 @@ function waveFlags(tSec) {
 
 export function updateWorldAnimations(tSec) {
   if (!state.camera) return;
+  const dt = state.lastSkyTimeSec === null ? 0 : Math.min(1, Math.max(0, tSec - state.lastSkyTimeSec));
+  state.lastSkyTimeSec = tSec;
+  advanceGameClock(dt);
   const cullPos = runtime.titleActive ? state.camera.position : player.pos;
   const { x, z } = cullPos;
   updateRegions(x, z);
   state.sky.update(regionWeights(x, z), state.camera, cullPos);
   waveFlags(tSec);
+  updateSoldiers(dt, x, z);
   if (typeof window !== 'undefined' && window.__gameDebug) {
     window.__gameDebug.regionVisibility = {
       shivta: Boolean(state.regions.shivta?.visible),

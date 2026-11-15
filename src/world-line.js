@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { GUNS, GUN_BODY_OFFSET, FOOTPRINTS, WALLS, TREES, ROADS } from './world-layout.js';
 import { LANDMARKS } from './config.js';
 import { createBake, addCollider, addSegmentCollider, addSign, ground, createInstanced, createInstancedChunks, composeMatrix, cullBeyond } from './world-kit.js';
-import { addDoher, addRoem, addAlfa, addSoldier, addTree } from './world-vehicles.js';
+import { addRoem, addAlfa, addSoldier, addTree, placeDoher, addGunCrew } from './world-vehicles.js';
 import { createShellPallet } from './props/shell-pallet.js';
 import { createMafikVehicle } from './props/mafik-vehicle.js';
 import { createSeededRandom } from './props/materials.js';
@@ -28,33 +28,15 @@ const CAIRN_STONES = [0x6a655d, 0x5c574f, 0x4a4640, 0x8e887c];
 const TUFT_RANGE = 65;
 const OUTPOST_RANGE = 210;
 const CAMO_GUNS = ['A1', 'B2'];
-const CREW_RAY_LIFT = 1;
-const DOWN = new THREE.Vector3(0, -1, 0);
-const raycaster = new THREE.Raycaster();
 
 export const GUN_CREW = { A2: [[0.6, 0.4], [-0.5, 1.6]], A1: [[0.3, 1.2]], B1: [[-0.4, 0.8]] };
 export const GUN_CREW_FACING = Math.PI * 0.8;
 export const FOOT_OFFSETS = [[-0.11, 0.04], [0.11, 0.04]];
+export { addGunCrew };
 
 function shellGeometry() {
   const profile = [[0, 0], [0.078, 0], [0.078, 0.05], [0.081, 0.06], [0.078, 0.08], [0.078, 0.5], [0.066, 0.62], [0.044, 0.72], [0.026, 0.79], [0.012, 0.82], [0, 0.825]];
   return new THREE.LatheGeometry(profile.map(([r, y]) => new THREE.Vector2(r, y)), 7);
-}
-
-function surfaceTop(support, x, z) {
-  support.updateMatrixWorld(true);
-  const top = new THREE.Box3().setFromObject(support).max.y + CREW_RAY_LIFT;
-  raycaster.set(new THREE.Vector3(x, top, z), DOWN);
-  return raycaster.intersectObject(support, true)[0]?.point.y ?? ground(x, z);
-}
-
-export function addGunCrew(bake, support, { members, facing }, x, z) {
-  const cos = Math.cos(facing);
-  const sin = Math.sin(facing);
-  for (const [dx, dz] of members) {
-    const feet = FOOT_OFFSETS.map(([fx, fz]) => surfaceTop(support, x + dx + fx * cos + fz * sin, z + dz - fx * sin + fz * cos));
-    addSoldier(bake, x + dx, Math.max(...feet), z + dz, facing);
-  }
 }
 
 const crewOf = (gunId) => ({ members: GUN_CREW[gunId], facing: GUN_CREW_FACING });
@@ -77,20 +59,15 @@ function addCamoNet(bake, cx, cz, w, d, height, seed) {
   }
 }
 
-function addGuns(bake, heroSpots, shell) {
+function addGuns(bake, group, shell) {
   const pallet = createShellPallet();
   for (const gun of GUNS) {
     const [rx, rz] = gun.rear;
     const bodyZ = rz + GUN_BODY_OFFSET;
     const y = ground(rx, bodyZ);
     const elevation = 0.04 + Math.abs(rx % 3) * 0.04;
-    if (gun.hero) heroSpots.push({ x: rx, y, z: bodyZ, ry: 0, crew: crewOf(gun.id) });
-    else addDoher(bake, rx, y, bodyZ, 0, elevation);
-    if (!gun.hero && GUN_CREW[gun.id]) {
-      const probe = createBake();
-      addDoher(probe, rx, y, bodyZ, 0, elevation);
-      addGunCrew(bake, probe.build('crew-probe'), crewOf(gun.id), rx, bodyZ);
-    }
+    const slot = placeDoher(group, rx, y, bodyZ, 0, elevation);
+    if (GUN_CREW[gun.id]) addGunCrew(slot, crewOf(gun.id), rx, bodyZ, gun.id);
     addCollider(REGION, rx, bodyZ, 3.4, 6.6, 3.2);
     for (let i = 0; i < SHELL_ROW; i++) {
       const sx = rx - 3.5 + (i % 2) * 0.22;
@@ -258,12 +235,12 @@ function addScatter(group) {
   group.add(createInstancedChunks(createTuftGeometry(), 'grassTuft', tufts, tuftColors, TUFT_CHUNK, TUFT_RANGE));
 }
 
-export function buildLine(scene, heroSpots) {
+export function buildLine(scene) {
   const group = new THREE.Group();
   group.name = 'region-line';
   const bake = createBake();
   const outpostBake = createBake();
-  addGuns(bake, heroSpots, shellGeometry());
+  addGuns(bake, group, shellGeometry());
   addAmmoDump(bake);
   addRoemAndMafik(bake);
   addSignCairn(bake);

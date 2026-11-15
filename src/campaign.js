@@ -5,19 +5,9 @@ import { MISSIONS_CH4_TO_7 } from './missions-ch4-7.js';
 import { save, player, runtime, addScoreAndMoney, advanceDay, writeSave, emit, on } from './state.js';
 import { completeMission } from './missions.js';
 import {
-  createObjectiveState,
-  getActiveMissionRunner,
-  setActiveMissionRunner,
-  setMissionCompleteHandler,
-  completeActiveMission,
-  resetActiveMissionObjectives,
-  resetObjectiveTelemetry,
-  updateObjectiveTelemetry,
-  getLeafState,
-  getCampaignObjectiveState,
-  updateCampaignObjectives,
-  handleCampaignInteract,
-  onCampaignArtilleryImpact
+  createObjectiveState, getActiveMissionRunner, setActiveMissionRunner, setMissionCompleteHandler,
+  completeActiveMission, resetActiveMissionObjectives, resetObjectiveTelemetry, updateObjectiveTelemetry,
+  getLeafState, getCampaignObjectiveState, updateCampaignObjectives, handleCampaignInteract, onCampaignArtilleryImpact
 } from './campaign-objectives.js';
 import { createCampaignUi } from './campaign-ui.js';
 
@@ -26,6 +16,7 @@ export { getCampaignObjectiveState, updateCampaignObjectives, handleCampaignInte
 export const ALL_CAMPAIGN_MISSIONS = { ...MISSIONS, ...MISSIONS_CH1_TO_3, ...MISSIONS_CH4_TO_7 };
 
 const M1_IDS = new Set(['base', 'range', 'doher_salvo', 'roem_rapid', 'rokhash_recon', 'mafik_radar', 'patrol']);
+const CHAIN = ['ch1_bakum', 'ch2_tironut', 'ch3_mikzoi', 'ch4_mitkadem', 'ch5_kav', 'ch6_mefakzim', 'ch7_shihrur'];
 
 let boundMissionsApi = null;
 let listenersBound = false;
@@ -36,21 +27,11 @@ setMissionCompleteHandler((id) => {
 });
 
 const campaignUi = createCampaignUi({
-  isChapterUnlocked,
-  isChapterCompleted,
-  getChapterMissions,
-  setActiveChapter,
-  startCampaignMission,
-  skipCommandersCourse
+  isChapterUnlocked, isChapterCompleted, getChapterMissions, setActiveChapter, startCampaignMission, skipCommandersCourse
 });
 
-function evName(key, fallback) {
-  return EVENTS[key] || fallback;
-}
-
-function getActiveRoleId() {
-  return save.role || save.profile?.roleId || 'doher';
-}
+const evName = (key, fallback) => EVENTS[key] || fallback;
+const getActiveRoleId = () => save.role || save.profile?.roleId || 'doher';
 
 function resolveChapterId(chapterId) {
   if (!chapterId || typeof chapterId !== 'string') return null;
@@ -58,14 +39,18 @@ function resolveChapterId(chapterId) {
   return ch ? ch.id : null;
 }
 
+function syncForcedTimeOfDay(missionId) {
+  const m = ALL_CAMPAIGN_MISSIONS[missionId];
+  runtime.forcedTimeOfDay = typeof m?.forceTimeOfDay === 'number' && Number.isFinite(m.forceTimeOfDay) ? m.forceTimeOfDay : null;
+}
+
 function ensureCampaignSave() {
   if (!save.chapterId) save.chapterId = 'ch1_bakum';
   if (!save.activeMissionId) save.activeMissionId = 'ch1_m1_bakum_gear';
+  syncForcedTimeOfDay(save.activeMissionId);
   if (typeof save.commandCourseSkipped !== 'boolean') save.commandCourseSkipped = false;
   if (typeof save.discharged !== 'boolean') save.discharged = false;
-  if (!save.stats) {
-    save.stats = { dronesKilled: 0, fireMissionsCalled: 0, nightMissionsDone: 0, rolesPlayed: [getActiveRoleId()] };
-  }
+  if (!save.stats) save.stats = { dronesKilled: 0, fireMissionsCalled: 0, nightMissionsDone: 0, rolesPlayed: [getActiveRoleId()] };
   if (!save.achievements) save.achievements = {};
   if (!save.ceremonies) save.ceremonies = { turquoiseBeret: false, fighterPin: false };
   if (typeof save.ceremonies.swearingIn !== 'boolean') save.ceremonies.swearingIn = false;
@@ -88,8 +73,7 @@ export function getChapterMissions(chapterId, roleId = getActiveRoleId()) {
 
 export function isChapterCompleted(chapterId, roleId = getActiveRoleId()) {
   const missions = getChapterMissions(chapterId, roleId);
-  if (!missions.length) return false;
-  return missions.every((m) => Boolean(save.completed?.[m.id]));
+  return missions.length ? missions.every((m) => Boolean(save.completed?.[m.id])) : false;
 }
 
 function isChapterUnlocked(chapterId) {
@@ -99,9 +83,7 @@ function isChapterUnlocked(chapterId) {
   if (chapterId === 'ch4_mitkadem') return isChapterCompleted('ch3_mikzoi') || save.day >= 166;
   if (chapterId === 'ch5_kav') return isChapterCompleted('ch4_mitkadem') || save.day >= 241;
   if (chapterId === 'ch6_mefakzim') return isChapterCompleted('ch5_kav') || save.day >= 481;
-  if (chapterId === 'ch7_shihrur') {
-    return isChapterCompleted('ch6_mefakzim') || save.commandCourseSkipped || save.day >= 661;
-  }
+  if (chapterId === 'ch7_shihrur') return isChapterCompleted('ch6_mefakzim') || save.commandCourseSkipped || save.day >= 661;
   return false;
 }
 
@@ -120,21 +102,13 @@ function reconcileCampaignProgression(persist = false) {
   const prevDay = save.day;
   const prevActive = save.activeMissionId;
   const prevDischarged = save.discharged;
-  const chain = ['ch1_bakum', 'ch2_tironut', 'ch3_mikzoi', 'ch4_mitkadem', 'ch5_kav', 'ch6_mefakzim', 'ch7_shihrur'];
-
-  for (let i = 0; i < chain.length - 1; i++) {
-    const cid = chain[i];
-    const nextCid = chain[i + 1];
+  for (let i = 0; i < CHAIN.length - 1; i++) {
+    const cid = CHAIN[i];
+    const nextCid = CHAIN[i + 1];
     if (!isChapterCompleted(cid)) continue;
     const nextCh = CHAPTERS.find((c) => c.id === nextCid);
-    if (cid === 'ch2_tironut') {
-      save.ceremonies.turquoiseBeret = true;
-      save.ceremonies.swearingIn = true;
-    }
-    if (cid === 'ch4_mitkadem') {
-      save.ceremonies.fighterPin = true;
-      if (save.rankId === 'turai') save.rankId = 'rabat';
-    }
+    if (cid === 'ch2_tironut') { save.ceremonies.turquoiseBeret = true; save.ceremonies.swearingIn = true; }
+    if (cid === 'ch4_mitkadem') { save.ceremonies.fighterPin = true; if (save.rankId === 'turai') save.rankId = 'rabat'; }
     if (cid === 'ch5_kav' && save.rankId !== 'samar') save.rankId = 'samal';
     if (cid === 'ch6_mefakzim') save.ceremonies.commanderPin = true;
     const targetCid = cid === 'ch5_kav' && save.commandCourseSkipped ? 'ch7_shihrur' : nextCid;
@@ -143,19 +117,16 @@ function reconcileCampaignProgression(persist = false) {
     if (save.chapterId === cid) save.chapterId = targetCid;
     if (nextCh && save.chapterId === 'ch6_mefakzim' && save.commandCourseSkipped) save.chapterId = 'ch7_shihrur';
   }
-
   if (save.completed?.ch7_m6_bakum_discharge) {
     save.day = Math.max(save.day, 840);
     save.discharged = true;
     save.rankId = 'samar';
   }
-
   const chMissions = getChapterMissions(save.chapterId);
   if (!chMissions.some((m) => m.id === save.activeMissionId)) {
     const pending = chMissions.find((m) => !save.completed?.[m.id]) || chMissions[0];
-    if (pending) save.activeMissionId = pending.id;
+    if (pending) { save.activeMissionId = pending.id; syncForcedTimeOfDay(pending.id); }
   }
-
   const achUnlocked = checkAndUnlockAchievements(persist);
   syncHudBadges();
   const changed = save.chapterId !== prevChapter || save.rankId !== prevRank || save.day !== prevDay || save.activeMissionId !== prevActive || save.discharged !== prevDischarged;
@@ -182,18 +153,14 @@ export function checkAndUnlockAchievements(persist = true) {
     ach_veteran_samar: () => save.rankId === 'samar' || save.day >= 720,
     ach_honorable_discharge: () => Boolean(save.discharged || save.completed?.ch7_m6_bakum_discharge)
   };
-
   let unlockedAny = false;
   for (const ach of ACHIEVEMENTS) {
-    if (save.achievements[ach.id]) continue;
-    const fn = checks[ach.id];
-    if (fn && fn()) {
-      save.achievements[ach.id] = true;
-      unlockedAny = true;
-      if (persist) addScoreAndMoney(ach.rewardScore || 0, ach.rewardMoney || 0);
-      emit(evName('ACHIEVEMENT_UNLOCKED', 'campaign:achievement'), { id: ach.id, title: ach.title });
-      emit(EVENTS.TOAST, { message: `עיטור חדש: ${ach.icon} ${ach.title}! (+${ach.rewardMoney} ₪)`, duration: 3800 });
-    }
+    if (save.achievements[ach.id] || !checks[ach.id]?.()) continue;
+    save.achievements[ach.id] = true;
+    unlockedAny = true;
+    if (persist) addScoreAndMoney(ach.rewardScore || 0, ach.rewardMoney || 0);
+    emit(evName('ACHIEVEMENT_UNLOCKED', 'campaign:achievement'), { id: ach.id, title: ach.title });
+    emit(EVENTS.TOAST, { message: `עיטור חדש: ${ach.icon} ${ach.title}! (+${ach.rewardMoney} ₪)`, duration: 3800 });
   }
   if (persist && unlockedAny) writeSave();
   return unlockedAny;
@@ -205,7 +172,7 @@ export function setActiveChapter(chapterId) {
   save.chapterId = chapterId;
   const list = getChapterMissions(chapterId);
   const next = list.find((m) => !save.completed?.[m.id]) || list[0];
-  if (next) save.activeMissionId = next.id;
+  if (next) { save.activeMissionId = next.id; syncForcedTimeOfDay(next.id); }
   syncHudBadges();
   writeSave();
   emit(evName('CHAPTER_CHANGED', 'campaign:chapter_changed'), { chapterId, title: ch.title });
@@ -219,6 +186,7 @@ export function skipCommandersCourse() {
   save.chapterId = 'ch7_shihrur';
   if (save.day < 661) save.day = 661;
   save.activeMissionId = 'ch7_m1_mentor_recruits';
+  syncForcedTimeOfDay('ch7_m1_mentor_recruits');
   const ch7 = CHAPTERS.find((c) => c.id === 'ch7_shihrur');
   syncHudBadges();
   writeSave();
@@ -233,6 +201,7 @@ export function startCampaignMission(missionId) {
   if (!m) return false;
   ensureCampaignSave();
   save.activeMissionId = missionId;
+  syncForcedTimeOfDay(missionId);
   if (m.chapterId && isChapterUnlocked(m.chapterId)) save.chapterId = m.chapterId;
   if (typeof m.forceTimeOfDay === 'number') runtime.timeOfDay = m.forceTimeOfDay;
   player.carryingType = null;
@@ -248,17 +217,9 @@ export function startCampaignMission(missionId) {
   return true;
 }
 
-export function completeCurrentCampaignMission() {
-  return completeActiveMission();
-}
-
-export function openCampaignModal() {
-  campaignUi.openCampaignModal();
-}
-
-export function closeCampaignModal() {
-  campaignUi.closeCampaignModal();
-}
+export const completeCurrentCampaignMission = () => completeActiveMission();
+export const openCampaignModal = () => campaignUi.openCampaignModal();
+export const closeCampaignModal = () => campaignUi.closeCampaignModal();
 
 export function initCampaign(missionsApi = null) {
   boundMissionsApi = missionsApi;
@@ -267,10 +228,8 @@ export function initCampaign(missionsApi = null) {
   ensureCampaignSave();
   campaignUi.ensureCampaignModalDOM();
   reconcileCampaignProgression(false);
-
   if (!listenersBound) {
     listenersBound = true;
-
     on(EVENTS.MISSION_COMPLETED, (p) => {
       const m = ALL_CAMPAIGN_MISSIONS[p?.missionId];
       if (m && p?.firstTime) {
@@ -285,63 +244,45 @@ export function initCampaign(missionsApi = null) {
       const isDischarge = p?.missionId === 'ch7_m6_bakum_discharge';
       const nextM = isDischarge ? null : getChapterMissions(save.chapterId).find((x) => !save.completed?.[x.id]);
       reconcileCampaignProgression(isDischarge || !nextM);
-      if (isDischarge) {
-        emit(evName('SERVICE_DISCHARGED', 'campaign:discharged'), { save });
-      } else if (nextM) {
-        startCampaignMission(nextM.id);
-      }
+      if (isDischarge) emit(evName('SERVICE_DISCHARGED', 'campaign:discharged'), { save });
+      else if (nextM) startCampaignMission(nextM.id);
     });
-
     on(EVENTS.RANGE_HIT, () => {
       const runner = getActiveMissionRunner();
-      if (!runner) return;
-      const leaf = runner.states.map(getLeafState).find((s) => s?.def.type === 'shoot-targets');
+      const leaf = runner?.states.map(getLeafState).find((s) => s?.def.type === 'shoot-targets');
       if (!leaf) return;
       leaf.progress += 1;
-      if (leaf.progress >= leaf.def.targetCount) {
-        leaf.done = true;
-        runtime.rangeActive = false;
-        runtime.roemRapidActive = false;
-      }
+      if (leaf.progress >= leaf.def.targetCount) { leaf.done = true; runtime.rangeActive = false; runtime.roemRapidActive = false; }
       updateObjectiveTelemetry(runner, true);
       if (runner.states.every((s) => s.done)) completeActiveMission();
       else writeSave();
     });
-
     on(EVENTS.DRONE_DESTROYED, (payload) => {
       if (payload?.isTransmitter || payload?.kind === 'transmitter') return;
       save.stats.dronesKilled = (save.stats.dronesKilled || 0) + 1;
       const runner = getActiveMissionRunner();
-      if (runner) {
-        const leaf = runner.states.map(getLeafState).find((s) => s?.def.type === 'destroy-drones');
-        if (leaf) {
-          leaf.progress += 1;
-          if (leaf.progress >= leaf.def.targetCount) leaf.done = true;
-          updateObjectiveTelemetry(runner, true);
-          if (runner.states.every((s) => s.done)) completeActiveMission();
-          else writeSave();
-        }
+      const leaf = runner?.states.map(getLeafState).find((s) => s?.def.type === 'destroy-drones');
+      if (leaf) {
+        leaf.progress += 1;
+        if (leaf.progress >= leaf.def.targetCount) leaf.done = true;
+        updateObjectiveTelemetry(runner, true);
+        if (runner.states.every((s) => s.done)) completeActiveMission();
+        else writeSave();
       }
       checkAndUnlockAchievements(true);
     });
-
     on(evName('FIRE_SUPPORT_IMPACT', 'fire:impact'), (p) => {
       save.stats.fireMissionsCalled = (save.stats.fireMissionsCalled || 0) + 1;
       onCampaignArtilleryImpact(p?.x || 0, p?.z || 0, p?.shellType || 'he');
       checkAndUnlockAchievements(true);
     });
-
-    on(EVENTS.PLAYER_RESPAWNED, () => {
-      resetActiveMissionObjectives();
-    });
-
+    on(EVENTS.PLAYER_RESPAWNED, () => resetActiveMissionObjectives());
     on(EVENTS.ROLE_CHANGED, () => {
       const rid = getActiveRoleId();
       if (!save.stats.rolesPlayed.includes(rid)) save.stats.rolesPlayed.push(rid);
       reconcileCampaignProgression(true);
     });
   }
-
   if (save.activeMissionId && !M1_IDS.has(save.activeMissionId)) {
     const m = ALL_CAMPAIGN_MISSIONS[save.activeMissionId];
     if (m) setActiveMissionRunner({ mission: m, states: (m.objectives || []).map(createObjectiveState), completed: false });

@@ -3,6 +3,7 @@ import { save, player, runtime, getCurrentRole, getCurrentRank, on } from './sta
 import { renderMissionsList, invalidateMissionsListKey, initMissionsPanel } from './hud-missions.js';
 import { getCurrentTarget } from './current-target.js';
 import { ensureHitMarker, showHitMarker, hideRadio, showRadio, showToast } from './hud-feedback.js';
+import { formatClock } from './world-time.js';
 
 export { showHitMarker, hideRadio, showRadio, showToast };
 
@@ -43,6 +44,7 @@ let lastCarryKey = '';
 let lastInteractKey = null;
 let lastChapterKey = '';
 let lastObjectiveKey = '';
+let lastClockKey = '';
 
 function getContextActionLabel(nearby) {
   if (!nearby) return '';
@@ -113,6 +115,17 @@ function syncStatusPanel() {
   }
 }
 
+function updateClock() {
+  const clockEl = ref('clock-text');
+  if (!clockEl) return;
+  const clockText = formatClock();
+  if (clockText !== lastClockKey) {
+    lastClockKey = clockText;
+    clockEl.textContent = clockText;
+    clockEl.classList.remove('hidden');
+  }
+}
+
 function updateObjectivePill() {
   const textEl = ref('objective-text');
   const distEl = ref('objective-distance');
@@ -135,6 +148,7 @@ function updateObjectivePill() {
 export function updateHUD(nearbyInteraction) {
   lastNearby = nearbyInteraction || null;
   syncStatusPanel();
+  updateClock();
   renderMissionsList();
   updateObjectivePill();
 
@@ -315,6 +329,7 @@ export function initHUD() {
   lastInteractKey = null;
   lastChapterKey = '';
   lastObjectiveKey = '';
+  lastClockKey = '';
   hideRadio();
   updateHUD(null);
   updateObjectivePill();
