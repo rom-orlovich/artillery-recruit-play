@@ -14,14 +14,9 @@
   <link rel="stylesheet" href="./styles/touch.css">
   <link rel="stylesheet" href="./styles/hud-mobile.css">
   <link rel="stylesheet" href="./styles/threats.css">
-  <script type="importmap">
-    {
-      "imports": {
-        "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
-        "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/"
-      }
-    }
-  </script>
+  <link rel="stylesheet" href="./styles/menus-help.css">
+  <link rel="stylesheet" href="./styles/help-panel.css">
+  <script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.170.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.170.0/examples/jsm/"}}</script>
 </head>
 <body>
   <canvas id="game-canvas"></canvas>
@@ -41,10 +36,7 @@
           <span id="clock-text" class="hud-clock-chip hidden" dir="ltr">07:30</span>
           <span class="hud-status-chevron" aria-hidden="true">▾</span>
         </div>
-        <div class="hud-sub-row">
-          <span id="day-text">יום 1</span>
-          <span id="beret-badge" class="badge-beret">🪖 טירון</span>
-        </div>
+        <div class="hud-sub-row"><span id="day-text">יום 1</span><span id="beret-badge" class="badge-beret">🪖 טירון</span></div>
         <div class="hud-chapter-row"><span id="chapter-badge" class="badge-chapter">פרק 1: בקו"ם ושבטה</span></div>
         <div class="hp-row"><div class="hp-bar-bg"><div id="hp-bar-fill"></div></div><bdi dir="ltr" id="hp-text">100 / 100</bdi></div>
         <div class="needs-row hidden"><div class="need-bar-bg"><div id="energy-bar-fill"></div></div><div class="need-bar-bg"><div id="hydration-bar-fill"></div></div></div>
@@ -56,11 +48,7 @@
           <span id="gear-sight" class="gear-chip">🎯 כוונת</span>
         </div>
       </section>
-      <div id="hud-objective-pill" class="hud-panel">
-        <span class="objective-icon">🎯</span>
-        <span id="objective-text">דבר עם מפקד הסוללה</span>
-        <bdi dir="ltr" id="objective-distance">0 מ'</bdi>
-      </div>
+      <div id="hud-objective-pill" class="hud-panel"><span class="objective-icon">🎯</span><span id="objective-text">דבר עם מפקד הסוללה</span><bdi dir="ltr" id="objective-distance">0 מ'</bdi></div>
     </div>
 
     <div id="hud-compass" class="hud-panel"><span>צ׳</span><span id="compass-marker">◆</span><span>מז׳</span></div>
@@ -83,7 +71,14 @@
     <div id="toast-banner" class="hidden"></div>
     <div id="carry-indicator" class="hidden"></div>
     <div id="interact-prompt" class="hidden"></div>
+    <div id="guide-offer" class="hud-panel hidden" role="dialog" aria-label="מדריך קצר">
+      <span>❓ רוצה מדריך קצר?</span>
+      <button type="button" id="guide-offer-yes" class="btn-primary">כן</button>
+      <button type="button" id="guide-offer-no" class="btn-secondary">לא</button>
+    </div>
   </div>
+
+  <button type="button" id="btn-help" class="btn-secondary help-btn-hud" aria-label="עזרה">❓ עזרה ?</button>
 
   <div id="touch-controls" class="hidden">
     <div id="look-zone"></div>
@@ -98,12 +93,12 @@
       <button type="button" id="btn-touch-fire-map" class="touch-btn hidden">🎯 סיוע אש</button>
       <button type="button" id="btn-touch-nvg" class="touch-btn hidden">🦉 אמר"ל</button>
     </div>
-    <button type="button" id="btn-touch-pause" class="touch-btn touch-pause">☰</button>
+    <button type="button" id="btn-touch-pause" class="touch-btn touch-pause">☰ תפריט</button>
   </div>
 
   <div id="title-screen" class="overlay-modal hidden">
     <div class="modal-card title-card">
-      <div class="modal-header"><h1>תותחנים בשטח: כומתת הטורקיז</h1></div>
+      <div class="modal-header"><h1>🎖️ תותחנים בשטח: כומתת הטורקיז</h1></div>
       <div class="modal-body title-body">
         <p class="modal-desc">מסלול הלוחם של חיל התותחנים — מבקו״ם ושבטה ועד קו האש.</p>
         <div id="title-new-confirm" class="reset-confirm hidden">
@@ -148,7 +143,7 @@
 
   <div id="pause-modal" class="overlay-modal hidden">
     <div class="modal-card">
-      <div class="modal-header"><h2>תפריט השהיה</h2><button type="button" id="btn-close-pause" class="btn-secondary modal-close-btn" aria-label="סגור">✕</button></div>
+      <div class="modal-header"><h2>⏸️ תפריט השהיה</h2><button type="button" id="btn-close-pause" class="btn-secondary modal-close-btn" aria-label="סגור">✕</button></div>
       <div class="modal-body pause-body">
         <div class="pause-list">
           <button type="button" id="btn-pause-campaign" class="btn-secondary pause-row">📋 יומן משימות</button>
@@ -162,7 +157,7 @@
           <span class="reset-confirm-label">לאפס את כל ההתקדמות השמורה?</span>
           <div class="reset-confirm-actions"><button type="button" id="btn-reset-confirm" class="btn-danger">אשר איפוס</button><button type="button" id="btn-reset-cancel" class="btn-secondary">ביטול</button></div>
         </div>
-        <p class="modal-desc kb-hint">תנועה: WASD | ריצה: Shift | קפיצה: Space | ירי: קליק שמאלי | פעולה: E | יכולת: Q | יומן: J | השהיה: P</p>
+        <p class="modal-desc kb-hint">תנועה: WASD | ריצה: Shift | קפיצה: Space | ירי: קליק שמאלי | פעולה: E | יכולת: Q | יומן: J | עזרה: H | השהיה: P</p>
       </div>
       <div class="modal-footer pause-footer"><button type="button" id="btn-play" class="btn-primary">▶ המשך</button><button type="button" id="btn-reset" class="btn-danger">אפס התקדמות</button></div>
     </div>
@@ -170,7 +165,7 @@
 
   <div id="settings-modal" class="overlay-modal hidden">
     <div class="modal-card">
-      <div class="modal-header"><h2>הגדרות</h2><button type="button" id="btn-close-settings" class="btn-secondary modal-close-btn" aria-label="סגור">✕</button></div>
+      <div class="modal-header"><h2>⚙️ הגדרות</h2><button type="button" id="btn-close-settings" class="btn-secondary modal-close-btn" aria-label="סגור">✕</button></div>
       <div class="modal-body">
         <div class="settings-grid">
           <div class="setting-card"><div class="setting-head"><label for="setting-volume">🔊 עוצמת קול</label><bdi dir="ltr" id="setting-volume-val">80%</bdi></div><input type="range" id="setting-volume" class="setting-range" min="0" max="100" step="10" value="80"></div>
@@ -204,7 +199,7 @@
 
   <div id="campaign-modal" class="overlay-modal hidden">
     <div class="modal-card modal-wide campaign-card">
-      <div class="modal-header campaign-header"><h2>יומן הקמפיין ועיטורי שירות</h2><button type="button" id="btn-close-campaign" class="btn-secondary modal-close-btn" aria-label="סגור">✕</button></div>
+      <div class="modal-header campaign-header"><h2>📋 יומן הקמפיין ועיטורי שירות</h2><button type="button" id="btn-close-campaign" class="btn-secondary modal-close-btn" aria-label="סגור">✕</button></div>
       <div class="modal-body">
         <div id="campaign-chapters-tabs" class="campaign-tabs"></div>
         <div class="campaign-chapter-bar"><span id="campaign-chapter-desc"></span><button type="button" id="btn-skip-commanders-course" class="btn-secondary">דלג על קורס מפק"ץ (עבור לפרק 7)</button></div>
@@ -230,7 +225,7 @@
 
   <div id="full-map-modal" class="overlay-modal hidden">
     <div class="modal-card full-map-card">
-      <div class="modal-header"><h2>מפת הגזרות</h2><button type="button" id="btn-close-full-map" class="btn-secondary modal-close-btn" aria-label="סגור">✕</button></div>
+      <div class="modal-header"><h2>🗺️ מפת הגזרות</h2><button type="button" id="btn-close-full-map" class="btn-secondary modal-close-btn" aria-label="סגור">✕</button></div>
       <div class="full-map-body">
         <canvas id="full-map-canvas"></canvas>
         <div class="full-map-side">
@@ -241,6 +236,22 @@
         </div>
       </div>
       <div class="modal-footer"><button type="button" id="btn-full-map-done" class="btn-primary">חזור לשטח</button></div>
+    </div>
+  </div>
+
+  <div id="help-panel" class="overlay-modal hidden">
+    <div class="modal-card help-card">
+      <div class="modal-header"><h2>❓ מדריך ועזרה</h2><button type="button" id="help-close" class="btn-secondary modal-close-btn" aria-label="סגור">✕</button></div>
+      <div class="help-tabs" role="tablist">
+        <button type="button" class="btn-secondary help-tab active" data-help-tab="guide" aria-selected="true">📖 איך משחקים</button>
+        <button type="button" class="btn-secondary help-tab" data-help-tab="controls" aria-selected="false">🎮 שליטה</button>
+        <button type="button" class="btn-secondary help-tab" data-help-tab="keys" aria-selected="false">⌨️ מקשי מקלדת</button>
+      </div>
+      <div class="modal-body help-body">
+        <div id="help-guide"></div>
+        <div id="help-controls" class="hidden"></div>
+        <div id="help-keys" class="hidden"></div>
+      </div>
     </div>
   </div>
 

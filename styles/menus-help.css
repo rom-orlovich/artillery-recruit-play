@@ -1,0 +1,264 @@
+.overlay-modal .modal-card,
+body #title-screen .modal-card,
+body #campaign-modal .modal-card,
+body #full-map-modal .modal-card,
+body #help-panel .modal-card {
+  background: #141c24;
+  background-color: #141c24;
+  border: 1px solid rgba(200, 209, 163, 0.36);
+  border-radius: 14px;
+  direction: rtl;
+  text-align: right;
+  color: #f3f1e2;
+  max-width: calc(100vw - 12px);
+  max-height: calc(100dvh - 10px);
+  box-sizing: border-box;
+}
+
+.overlay-modal .modal-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid rgba(200, 209, 163, 0.2);
+}
+
+.overlay-modal .modal-header h1,
+.overlay-modal .modal-header h2 {
+  margin: 0;
+  margin-inline-end: auto;
+  color: #f8fafc;
+}
+
+.overlay-modal .modal-close-btn {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.overlay-modal .btn-primary {
+  background: #0e746b;
+  border: 1px solid #38d6c7;
+  color: #ffffff;
+  font-weight: 700;
+  min-height: 44px;
+}
+
+.overlay-modal .btn-secondary {
+  background: #23303d;
+  border: 1px solid #6b8094;
+  color: #f3f1e2;
+  min-height: 44px;
+}
+
+.overlay-modal .btn-danger {
+  background: #a62626;
+  border: 1px solid #f87171;
+  color: #ffffff;
+  font-weight: 700;
+  min-height: 44px;
+}
+
+.overlay-modal button:disabled {
+  background: #1f2933;
+  border-color: #526373;
+  color: #cbd5e1;
+  opacity: 1;
+  cursor: not-allowed;
+}
+
+.overlay-modal .modal-desc,
+.overlay-modal .full-map-hint,
+.overlay-modal #shop-earn-help {
+  color: #e2e8d5;
+  opacity: 1;
+}
+
+.setting-toggle[aria-pressed="true"],
+.setting-seg.active {
+  background: #135d66;
+  border-color: #2cc5b6;
+  color: #ffffff;
+}
+
+#campaign-modal .campaign-tabs {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  max-width: 100%;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+#campaign-modal .campaign-tab {
+  min-width: 44px;
+  min-height: 44px;
+  height: auto;
+  padding: 6px 10px !important;
+  border-radius: 8px !important;
+  border: 1px solid #6b8094 !important;
+  background: #1d2a35 !important;
+  color: #f3f1e2 !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+#campaign-modal .campaign-tab.active {
+  background: #135d66 !important;
+  border-color: #2cc5b6 !important;
+  color: #ffffff !important;
+}
+
+#campaign-modal .campaign-tab.locked {
+  background: #1a222b !important;
+  border-color: #526373 !important;
+  color: #cbd5e1 !important;
+  opacity: 1 !important;
+}
+
+#campaign-modal .campaign-chapter-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+#campaign-modal #campaign-chapter-desc {
+  color: #e6ead8;
+  opacity: 1;
+}
+
+#campaign-modal .campaign-missions-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+#campaign-modal .campaign-mission-card {
+  min-width: 0;
+  padding: 10px !important;
+  border-radius: 8px !important;
+  border: 1px solid #4b5e70 !important;
+  background: #16202a !important;
+  color: #f3f1e2 !important;
+}
+
+#campaign-modal .campaign-mission-card.completed { border-color: #22c55e !important; }
+#campaign-modal .campaign-mission-card.active {
+  border-color: #ffd15c !important;
+  background: #1b252e !important;
+}
+
+#campaign-modal .mission-title,
+#campaign-modal .achievement-title {
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 4px;
+}
+
+#campaign-modal .mission-desc,
+#campaign-modal .achievement-desc {
+  color: #d8e0c8;
+  opacity: 1;
+  margin-bottom: 6px;
+}
+
+#campaign-modal .mission-objectives {
+  padding-right: 18px;
+  margin: 0 0 8px 0;
+  color: #e8edd8;
+}
+
+#campaign-modal .mission-reward { color: #ffd15c; margin-bottom: 8px; }
+
+#campaign-modal .btn-start-campaign-mission,
+#campaign-modal .btn-start-campaign-mission.btn-primary {
+  width: 100%;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 6px 10px !important;
+  border-radius: 6px !important;
+  background: #0e746b !important;
+  border: 1px solid #38d6c7 !important;
+  color: #ffffff !important;
+  font-weight: 700;
+}
+
+#campaign-modal .btn-start-campaign-mission.btn-secondary {
+  background: #23303d !important;
+  border: 1px solid #6b8094 !important;
+  color: #f3f1e2 !important;
+  font-weight: 700;
+}
+
+#campaign-modal .btn-start-campaign-mission:disabled {
+  background: #1f2933 !important;
+  border: 1px solid #526373 !important;
+  color: #cbd5e1 !important;
+  opacity: 1 !important;
+  cursor: not-allowed;
+}
+
+#campaign-modal .campaign-achievements-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+}
+
+#campaign-modal .achievement-card {
+  min-width: 0;
+  padding: 8px 10px !important;
+  border-radius: 8px !important;
+  border: 1px solid #526373 !important;
+  background: #18222c !important;
+  color: #cbd5e1 !important;
+  opacity: 1 !important;
+}
+
+#campaign-modal .achievement-card.earned {
+  border-color: #f59e0b !important;
+  background: #1f2e2b !important;
+  color: #f8fafc !important;
+}
+
+@media (min-width: 660px) {
+  #pause-modal .modal-card { width: min(480px, calc(100vw - 216px)); }
+}
+
+@media (max-height: 420px), (max-width: 900px) {
+  .full-map-side { justify-content: flex-start; padding-top: 2px; }
+}
+
+.overlay-modal .modal-body,
+.overlay-modal .modal-body *,
+.overlay-modal .full-map-body,
+.overlay-modal .full-map-body *,
+.overlay-modal .help-tabs,
+.overlay-modal .help-tabs *,
+#campaign-modal .modal-body,
+#campaign-modal .modal-body *,
+#campaign-modal .campaign-tab,
+#campaign-modal .campaign-chapter-bar,
+#campaign-modal #campaign-chapter-desc,
+#campaign-modal #btn-skip-commanders-course,
+#campaign-modal .campaign-mission-card,
+#campaign-modal .campaign-mission-card *,
+#campaign-modal .btn-start-campaign-mission,
+#campaign-modal .campaign-achievements-grid,
+#campaign-modal .campaign-achievements-grid *,
+#campaign-modal .achievement-card,
+#campaign-modal .achievement-card * {
+  font-size: 14px;
+}
+
+.overlay-modal .modal-body h3 { font-size: 15px; }

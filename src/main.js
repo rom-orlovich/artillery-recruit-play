@@ -1,4 +1,4 @@
-import { EVENTS, isTouchDevice, SAVE_KEY } from './config.js';
+import { EVENTS, SAVE_KEY } from './config.js';
 import * as configMod from './config.js';
 import * as stateMod from './state.js';
 import { save, player, runtime, syncDerivedStats, emit, getCurrentRole, getCurrentRank } from './state.js';
@@ -29,6 +29,15 @@ export const appContext = {
   canvas: null,
   modules: {}
 };
+
+function hasTouchSupport() {
+  return Boolean(
+    (navigator.maxTouchPoints || 0) > 0 ||
+    'ontouchstart' in window ||
+    window.matchMedia?.('(pointer: coarse)')?.matches ||
+    window.matchMedia?.('(any-pointer: coarse)')?.matches
+  );
+}
 
 async function loadOptionalModule(path) {
   try {
@@ -74,10 +83,12 @@ function syncFallbackHUD() {
 }
 
 function updateTouchVisibility() {
-  runtime.isMobile = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || window.innerWidth <= 900;
+  const hasTouch = hasTouchSupport();
+  runtime.isMobile = hasTouch;
+  document.body.classList.toggle('is-touch', hasTouch);
   const touchEl = document.getElementById('touch-controls');
   if (!touchEl) return;
-  const active = runtime.isMobile && isActivePlay();
+  const active = hasTouch && isActivePlay();
   const wasHidden = touchEl.classList.contains('hidden');
   touchEl.classList.toggle('hidden', !active);
   if (wasHidden === active) refreshHudRects();
@@ -133,7 +144,9 @@ function openCampaignJournal() {
 
 async function bootstrap() {
   const canvas = document.getElementById('game-canvas');
-  document.body.classList.toggle('is-touch', isTouchDevice());
+  const hasTouch = hasTouchSupport();
+  runtime.isMobile = hasTouch;
+  document.body.classList.toggle('is-touch', hasTouch);
   const { scene, camera, renderer } = createWorld(canvas, runtime.isMobile);
   appContext.scene = scene;
   appContext.camera = camera;

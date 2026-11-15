@@ -17,17 +17,17 @@ export const ATMOSPHERES = {
 };
 
 export const DAY_KEYFRAMES = [
-  { hour: 0, sunLight: '#7da2e0', sunIntensity: 0.1, hemiSky: '#283b5c', hemiGround: '#1a202c', hemiIntensity: 0.24, fog: '#0d1522', fogDensity: 1.2, horizon: '#1a2840', ridgeNear: '#121822', ridgeFar: '#162030', exposure: 0.95, envIntensity: 0.25 },
-  { hour: 5, sunLight: '#7da2e0', sunIntensity: 0.1, hemiSky: '#283b5c', hemiGround: '#1a202c', hemiIntensity: 0.24, fog: '#0d1522', fogDensity: 1.2, horizon: '#1a2840', ridgeNear: '#121822', ridgeFar: '#162030', exposure: 0.95, envIntensity: 0.25 },
-  { hour: 6, sunLight: '#ff8a3d', sunIntensity: 0.95, hemiSky: '#c8a8a0', hemiGround: '#9c7e68', hemiIntensity: 0.55, fog: '#d89e7c', fogDensity: 1.08, horizon: '#f0a06c', ridgeNear: '#685852', ridgeFar: '#968074', exposure: 1.0, envIntensity: 0.45 },
-  { hour: 8, sunLight: '#ffe0b2', sunIntensity: 1.85, hemiSky: '#dce4ec', hemiGround: '#c8ba9e', hemiIntensity: 0.85, fog: '#eedcc4', fogDensity: 1.0, horizon: '#f4e6d0', ridgeNear: '#c8bea8', ridgeFar: '#d8ceb8', exposure: 1.0, envIntensity: 0.55 },
-  { hour: 8.5, sunLight: '#fffbf5', sunIntensity: 2.45, hemiSky: '#f7f9fc', hemiGround: '#faf8f5', hemiIntensity: 0.95, fog: '#fffbf5', fogDensity: 1.0, horizon: '#fffcf6', ridgeNear: '#f7f6f4', ridgeFar: '#f8f7f5', exposure: 1.0, envIntensity: 0.58 },
-  { hour: 12.5, sunLight: '#ffffff', sunIntensity: 2.6, hemiSky: '#ffffff', hemiGround: '#ffffff', hemiIntensity: 1.0, fog: '#ffffff', fogDensity: 1.0, horizon: '#ffffff', ridgeNear: '#ffffff', ridgeFar: '#ffffff', exposure: 1.0, envIntensity: 0.6 },
-  { hour: 16, sunLight: '#fffbf5', sunIntensity: 2.45, hemiSky: '#f7f9fc', hemiGround: '#faf8f5', hemiIntensity: 0.95, fog: '#fffbf5', fogDensity: 1.0, horizon: '#fffcf6', ridgeNear: '#f7f6f4', ridgeFar: '#f8f7f5', exposure: 1.0, envIntensity: 0.58 },
-  { hour: 18, sunLight: '#ff9c42', sunIntensity: 1.15, hemiSky: '#eab48c', hemiGround: '#9c7858', hemiIntensity: 0.55, fog: '#e0a476', fogDensity: 1.08, horizon: '#f4a65e', ridgeNear: '#725e56', ridgeFar: '#a07c6a', exposure: 1.02, envIntensity: 0.4 },
-  { hour: 19.5, sunLight: '#b83224', sunIntensity: 0.25, hemiSky: '#5a4254', hemiGround: '#382a2a', hemiIntensity: 0.3, fog: '#3c2832', fogDensity: 1.15, horizon: '#68383c', ridgeNear: '#2c2028', ridgeFar: '#402c32', exposure: 0.98, envIntensity: 0.28 },
-  { hour: 21, sunLight: '#7da2e0', sunIntensity: 0.1, hemiSky: '#283b5c', hemiGround: '#1a202c', hemiIntensity: 0.24, fog: '#0d1522', fogDensity: 1.2, horizon: '#1a2840', ridgeNear: '#121822', ridgeFar: '#162030', exposure: 0.95, envIntensity: 0.25 },
-  { hour: 24, sunLight: '#7da2e0', sunIntensity: 0.1, hemiSky: '#283b5c', hemiGround: '#1a202c', hemiIntensity: 0.24, fog: '#0d1522', fogDensity: 1.2, horizon: '#1a2840', ridgeNear: '#121822', ridgeFar: '#162030', exposure: 0.95, envIntensity: 0.25 }
+  { hour: 0, zenith: '#28303c', horizon: '#1a2840', horizonAway: '#142034', ground: '#141820', sunColor: '#9fb4d8', sunLight: '#7da2e0', sunIntensity: 0.1, hemiSky: '#283b5c', hemiGround: '#1a202c', hemiIntensity: 0.24, fog: '#0d1522', fogDensity: 1.2, ridgeNear: '#121822', ridgeFar: '#162030', exposure: 0.95, envIntensity: 0.25, rays: 0, stars: 1 },
+  { hour: 5, zenith: '#28303c', horizon: '#1a2840', horizonAway: '#142034', ground: '#141820', sunColor: '#9fb4d8', sunLight: '#7da2e0', sunIntensity: 0.1, hemiSky: '#283b5c', hemiGround: '#1a202c', hemiIntensity: 0.24, fog: '#0d1522', fogDensity: 1.2, ridgeNear: '#121822', ridgeFar: '#162030', exposure: 0.95, envIntensity: 0.25, rays: 0, stars: 1 },
+  { hour: 6, zenith: '#8c94b8', horizon: '#f0a06c', horizonAway: '#a8b0c8', ground: '#706054', sunColor: '#ffb878', sunLight: '#ff8a3d', sunIntensity: 0.95, hemiSky: '#c8a8a0', hemiGround: '#9c7e68', hemiIntensity: 0.55, fog: '#d89e7c', fogDensity: 1.08, ridgeNear: '#685852', ridgeFar: '#968074', exposure: 1.0, envIntensity: 0.45, rays: 0.3, stars: 0 },
+  { hour: 8, zenith: '#c4d8f2', horizon: '#f4e6d0', horizonAway: '#dce4ee', ground: '#e4dac8', sunColor: '#ffe8c8', sunLight: '#ffe0b2', sunIntensity: 1.85, hemiSky: '#dce4ec', hemiGround: '#c8ba9e', hemiIntensity: 0.85, fog: '#eedcc4', fogDensity: 1.0, ridgeNear: '#c8bea8', ridgeFar: '#d8ceb8', exposure: 1.0, envIntensity: 0.55, rays: 0, stars: 0 },
+  { hour: 8.5, zenith: '#d6e6fa', horizon: '#fffcf6', horizonAway: '#f0f4fa', ground: '#f6f2ea', sunColor: '#fffbf5', sunLight: '#fffbf5', sunIntensity: 2.45, hemiSky: '#f7f9fc', hemiGround: '#faf8f5', hemiIntensity: 0.95, fog: '#fffbf5', fogDensity: 1.0, ridgeNear: '#f7f6f4', ridgeFar: '#f8f7f5', exposure: 1.0, envIntensity: 0.58, rays: 0, stars: 0 },
+  { hour: 12.5, zenith: '#ffffff', horizon: '#ffffff', horizonAway: '#ffffff', ground: '#ffffff', sunColor: '#ffffff', sunLight: '#ffffff', sunIntensity: 2.6, hemiSky: '#ffffff', hemiGround: '#ffffff', hemiIntensity: 1.0, fog: '#ffffff', fogDensity: 1.0, ridgeNear: '#ffffff', ridgeFar: '#ffffff', exposure: 1.0, envIntensity: 0.6, rays: 0, stars: 0 },
+  { hour: 16, zenith: '#e6d6c8', horizon: '#ffe8cc', horizonAway: '#f2e4d8', ground: '#f4e8d8', sunColor: '#fff0d8', sunLight: '#fffbf5', sunIntensity: 2.45, hemiSky: '#f7f9fc', hemiGround: '#faf8f5', hemiIntensity: 0.95, fog: '#fffbf5', fogDensity: 1.0, ridgeNear: '#f7f6f4', ridgeFar: '#f8f7f5', exposure: 1.0, envIntensity: 0.58, rays: 0, stars: 0 },
+  { hour: 18, zenith: '#9a849c', horizon: '#f4a65e', horizonAway: '#b098a8', ground: '#98725a', sunColor: '#ffb464', sunLight: '#ff9c42', sunIntensity: 1.15, hemiSky: '#eab48c', hemiGround: '#9c7858', hemiIntensity: 0.55, fog: '#e0a476', fogDensity: 1.08, ridgeNear: '#725e56', ridgeFar: '#a07c6a', exposure: 1.02, envIntensity: 0.4, rays: 0.65, stars: 0 },
+  { hour: 19.5, zenith: '#383850', horizon: '#68383c', horizonAway: '#403442', ground: '#2c2228', sunColor: '#4a3038', sunLight: '#b83224', sunIntensity: 0.25, hemiSky: '#5a4254', hemiGround: '#382a2a', hemiIntensity: 0.3, fog: '#3c2832', fogDensity: 1.15, ridgeNear: '#2c2028', ridgeFar: '#402c32', exposure: 0.98, envIntensity: 0.28, rays: 0, stars: 0.55 },
+  { hour: 21, zenith: '#28303c', horizon: '#1a2840', horizonAway: '#142034', ground: '#141820', sunColor: '#9fb4d8', sunLight: '#7da2e0', sunIntensity: 0.1, hemiSky: '#283b5c', hemiGround: '#1a202c', hemiIntensity: 0.24, fog: '#0d1522', fogDensity: 1.2, ridgeNear: '#121822', ridgeFar: '#162030', exposure: 0.95, envIntensity: 0.25, rays: 0, stars: 1 },
+  { hour: 24, zenith: '#28303c', horizon: '#1a2840', horizonAway: '#142034', ground: '#141820', sunColor: '#9fb4d8', sunLight: '#7da2e0', sunIntensity: 0.1, hemiSky: '#283b5c', hemiGround: '#1a202c', hemiIntensity: 0.24, fog: '#0d1522', fogDensity: 1.2, ridgeNear: '#121822', ridgeFar: '#162030', exposure: 0.95, envIntensity: 0.25, rays: 0, stars: 1 }
 ];
 
 export const LINE_DUSK = {
@@ -63,7 +63,7 @@ void main() {
   gl_Position = p.xyww;
 }`;
 
-export const SKY_FRAGMENT = `
+const SKY_CORE = `
 uniform vec3 zenith; uniform vec3 horizon; uniform vec3 horizonAway; uniform vec3 groundCol; uniform vec3 sunColor; uniform vec3 sunDir;
 uniform float clouds; uniform float rays; uniform float stars;
 varying vec3 vDir;
@@ -72,7 +72,7 @@ float hash3(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758
 float noise(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f);
   return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y); }
 float fbm(vec2 p) { float s = 0.0; float a = 0.5; for (int i = 0; i < 4; i++) { s += noise(p) * a; p = p * 2.03 + 7.1; a *= 0.5; } return s; }
-void main() {
+vec3 evalSky() {
   vec3 d = normalize(vDir);
   float h = d.y;
   float sd = max(dot(d, normalize(sunDir)), 0.0);
@@ -105,16 +105,17 @@ void main() {
   float mag = fract(s * 173.3);
   float starMask = smoothstep(0.05, 0.22, h) * (1.0 - cover * 0.85) * stars;
   col += mix(vec3(0.82, 0.88, 1.0), vec3(1.0, 0.95, 0.86), mag) * star * (0.45 + 0.75 * mag) * starMask;
-  gl_FragColor = vec4(col, 1.0);
+  return col;
 }`;
 
-export const SKY_DISPLAY_FRAGMENT = `
-uniform samplerCube skyShivta; uniform samplerCube skyYoav; uniform samplerCube skyLine; uniform vec3 weights;
-varying vec3 vDir;
+export const SKY_FRAGMENT = `${SKY_CORE}
 void main() {
-  vec3 d = normalize(vDir);
-  vec3 col = textureCube(skyShivta, d).rgb * weights.x + textureCube(skyYoav, d).rgb * weights.y + textureCube(skyLine, d).rgb * weights.z;
-  gl_FragColor = vec4(col, 1.0);
+  gl_FragColor = vec4(evalSky(), 1.0);
+}`;
+
+export const SKY_DOME_FRAGMENT = `${SKY_CORE}
+void main() {
+  gl_FragColor = vec4(evalSky(), 1.0);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
 }`;

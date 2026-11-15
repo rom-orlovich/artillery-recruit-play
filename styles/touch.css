@@ -71,22 +71,27 @@
   right: var(--safe-right);
   bottom: var(--safe-bottom);
   display: grid;
-  grid-template-columns: repeat(3, 72px);
-  gap: 10px;
+  grid-template-columns: repeat(3, minmax(76px, auto));
+  gap: 8px;
   pointer-events: auto;
   touch-action: none;
 }
 
 .touch-btn {
-  min-width: 44px;
-  min-height: 48px;
-  height: 48px;
+  min-width: 76px;
+  min-height: 44px;
+  height: 46px;
+  padding: 0 8px;
   border-radius: 12px;
   border: 1px solid rgba(200, 209, 163, 0.55);
-  background: rgba(20, 24, 22, 0.72);
+  background: rgba(20, 24, 22, 0.84);
   color: #f3f1e2;
   font-size: 13px;
   font-weight: 700;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   touch-action: none;
 }
 
@@ -129,10 +134,13 @@
   position: fixed;
   top: var(--safe-top);
   left: var(--safe-left);
-  width: 48px;
-  height: 48px;
+  width: auto;
+  min-width: 76px;
+  height: 44px;
+  padding: 0 8px;
   pointer-events: auto;
-  font-size: 18px;
+  font-size: 13px;
+  white-space: nowrap;
 }
 
 body.left-handed #joy-zone {
@@ -163,14 +171,12 @@ body.left-handed #look-zone {
   .touch-actions-grid {
     right: 8px;
     bottom: 6px;
-    grid-template-columns: repeat(3, 68px);
+    grid-template-columns: repeat(3, minmax(76px, auto));
     gap: 5px;
-    max-width: calc(40vw - 8px);
-    max-height: calc(45dvh - 6px);
   }
 
   .touch-actions-grid:has(.touch-btn:nth-child(7):not(.hidden), .touch-btn:nth-child(8):not(.hidden)) {
-    grid-template-columns: repeat(4, 62px);
+    grid-template-columns: repeat(4, minmax(68px, auto));
     gap: 4px;
   }
 
@@ -178,22 +184,21 @@ body.left-handed #look-zone {
     min-width: 44px;
     min-height: 44px;
     height: 44px;
-    padding: 0 6px;
+    padding: 0 7px;
     font-size: 12px;
     border-radius: 10px;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
 
   .touch-pause {
     top: 6px;
     left: 8px;
-    width: 44px;
+    width: auto;
+    min-width: 76px;
     height: 44px;
-    min-width: 44px;
     min-height: 44px;
-    font-size: 16px;
+    padding: 0 8px;
+    font-size: 12px;
   }
 
   body.left-handed #joy-zone {

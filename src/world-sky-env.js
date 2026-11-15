@@ -1,30 +1,32 @@
 import * as THREE from 'three';
 import { fbm } from './world-terrain.js';
+import { SKY_VERTEX, SKY_FRAGMENT } from './world-sky-presets.js';
 
-const FADE_DURATION_MS = 500;
-const FADE_MIDPOINT_MS = 250;
 const RIDGES = [
   { radius: 640, base: 22, amp: 34, seed: 3, segments: 160 },
   { radius: 1020, base: 46, amp: 60, seed: 11, segments: 160 }
 ];
-const COLOR_KEYS = ['horizon', 'sunLight', 'hemiSky', 'hemiGround', 'fog', 'ridgeNear', 'ridgeFar'];
-const NUMBER_KEYS = ['sunIntensity', 'hemiIntensity', 'fogDensity', 'exposure', 'envIntensity'];
+const COLOR_KEYS = [
+  'zenith',
+  'horizon',
+  'horizonAway',
+  'ground',
+  'sunColor',
+  'sunLight',
+  'hemiSky',
+  'hemiGround',
+  'fog',
+  'ridgeNear',
+  'ridgeFar'
+];
+const NUMBER_KEYS = ['sunIntensity', 'hemiIntensity', 'fogDensity', 'exposure', 'envIntensity', 'rays', 'stars'];
 const MAX_SUN_ELEV = (63 * Math.PI) / 180;
 const SIN_MAX_ELEV = Math.sin(MAX_SUN_ELEV);
 const COS_MAX_ELEV = Math.cos(MAX_SUN_ELEV);
 const MOON_DIR = new THREE.Vector3(0.35, 0.62, -0.5).normalize();
-
-function getFadeOverlay() {
-  if (typeof document === 'undefined') return null;
-  let el = document.getElementById('phase-fade');
-  if (!el) {
-    el = document.createElement('div');
-    el.id = 'phase-fade';
-    el.style.cssText = 'position:fixed;inset:0;background:#000;pointer-events:none;z-index:999;opacity:0;';
-    document.body.appendChild(el);
-  }
-  return el;
-}
+const ENV_REFRESH_HOURS = 0.5;
+const ENV_COLOR_THRESHOLD = 0.03;
+const ENV_CACHE_LIMIT = 2;
 
 function ridgeGeometry({ radius, base, amp, seed, segments }) {
   const positions = [];
@@ -45,17 +47,8 @@ function ridgeGeometry({ radius, base, amp, seed, segments }) {
   return geometry;
 }
 
-function dominantRegionIndex(weights, regionOrder) {
-  let bestIdx = 0;
-  let bestW = -1;
-  regionOrder.forEach((id, i) => {
-    const w = weights ? (weights[id] ?? 0) : (i === 0 ? 1 : 0);
-    if (w > bestW) {
-      bestW = w;
-      bestIdx = i;
-    }
-  });
-  return bestIdx;
+function colorDiffSum(a, b) {
+  return Math.abs(a.r - b.r) + Math.abs(a.g - b.g) + Math.abs(a.b - b.b);
 }
 
 export function createHorizonRidges(scene) {
@@ -69,29 +62,89 @@ export function createHorizonRidges(scene) {
   });
 }
 
-export function createEnvManager(scene, renderer, targets, regionOrder) {
+export function createEnvManager(scene, renderer) {
   const pmrem = new THREE.PMREMGenerator(renderer);
   pmrem.compileCubemapShader();
-  const envCache = new Map();
-  let activeEnvKey = '';
+  const bakeUniforms = {
+    zenith: { value: new THREE.Color() },
+    horizon: { value: new THREE.Color() },
+    horizonAway: { value: new THREE.Color() },
+    groundCol: { value: new THREE.Color() },
+    sunColor: { value: new THREE.Color() },
+    sunDir: { value: new THREE.Vector3() },
+    clouds: { value: 0.3 },
+    rays: { value: 0 },
+    stars: { value: 0 }
+  };
+  const bakeScene = new THREE.Scene();
+  const bakeMesh = new THREE.Mesh(
+    new THREE.SphereGeometry(50, 32, 16),
+    new THREE.ShaderMaterial({
+      uniforms: bakeUniforms,
+      vertexShader: SKY_VERTEX,
+      fragmentShader: SKY_FRAGMENT,
+      side: THREE.BackSide,
+      depthWrite: false
+    })
+  );
+  bakeScene.add(bakeMesh);
+  const cubeTarget = new THREE.WebGLCubeRenderTarget(128, { type: THREE.HalfFloatType });
+  const cubeCam = new THREE.CubeCamera(1, 100, cubeTarget);
+  const liveTargets = [];
+  let hasEnv = false;
+  let lastHour = 0;
+  const lastZenith = new THREE.Color();
+  const lastHorizon = new THREE.Color();
+  const lastHorizonAway = new THREE.Color();
+  const lastGround = new THREE.Color();
+
   return {
-    syncEnvMap(phase, weights) {
-      const idx = dominantRegionIndex(weights, regionOrder);
-      const key = `${phase}:${regionOrder[idx]}`;
-      if (key === activeEnvKey) return;
-      let envTarget = envCache.get(key);
-      if (!envTarget) {
-        envTarget = pmrem.fromCubemap(targets[idx].texture);
-        envCache.set(key, envTarget);
+    syncEnvMap(hour, uniforms) {
+      if (hasEnv) {
+        const rawDiff = Math.abs(hour - lastHour);
+        const hourDiff = Math.min(rawDiff, 24 - rawDiff);
+        if (hourDiff < ENV_REFRESH_HOURS) return;
+        const delta =
+          colorDiffSum(uniforms.zenith.value, lastZenith) +
+          colorDiffSum(uniforms.horizon.value, lastHorizon) +
+          colorDiffSum(uniforms.horizonAway.value, lastHorizonAway) +
+          colorDiffSum(uniforms.groundCol.value, lastGround);
+        if (delta < ENV_COLOR_THRESHOLD) return;
       }
-      activeEnvKey = key;
-      scene.environment = envTarget.texture;
+      bakeUniforms.zenith.value.copy(uniforms.zenith.value);
+      bakeUniforms.horizon.value.copy(uniforms.horizon.value);
+      bakeUniforms.horizonAway.value.copy(uniforms.horizonAway.value);
+      bakeUniforms.groundCol.value.copy(uniforms.groundCol.value);
+      bakeUniforms.sunColor.value.copy(uniforms.sunColor.value);
+      bakeUniforms.sunDir.value.copy(uniforms.sunDir.value);
+      bakeUniforms.clouds.value = uniforms.clouds.value;
+      bakeUniforms.rays.value = uniforms.rays.value;
+      bakeUniforms.stars.value = uniforms.stars.value;
+
+      const prevTarget = renderer.getRenderTarget();
+      cubeCam.update(renderer, bakeScene);
+      const nextTarget = pmrem.fromCubemap(cubeTarget.texture);
+      renderer.setRenderTarget(prevTarget);
+      scene.environment = nextTarget.texture;
+      liveTargets.push(nextTarget);
+      while (liveTargets.length > ENV_CACHE_LIMIT) {
+        liveTargets.shift().dispose();
+      }
+      hasEnv = true;
+      lastHour = hour;
+      lastZenith.copy(uniforms.zenith.value);
+      lastHorizon.copy(uniforms.horizon.value);
+      lastHorizonAway.copy(uniforms.horizonAway.value);
+      lastGround.copy(uniforms.groundCol.value);
     },
     dispose() {
-      for (const target of envCache.values()) target.dispose();
-      envCache.clear();
+      for (const target of liveTargets) target.dispose();
+      liveTargets.length = 0;
+      cubeTarget.dispose();
+      bakeMesh.geometry.dispose();
+      bakeMesh.material.dispose();
       pmrem.dispose();
-      activeEnvKey = '';
+      hasEnv = false;
       scene.environment = null;
     }
   };
@@ -127,72 +180,6 @@ export function createHeadlampController() {
   };
 }
 
-export function createFadeController(initialPhase, onSwap) {
-  const fadeOverlay = getFadeOverlay();
-  const state = { active: false, targetPhase: initialPhase, startMs: 0, blackPainted: false, swapped: false, timerId: null };
-  return {
-    step() {
-      if (!state.active) return;
-      const elapsed = performance.now() - state.startMs;
-      if (elapsed < FADE_MIDPOINT_MS) {
-        const alpha = Math.min(1, elapsed / (FADE_MIDPOINT_MS * 0.88));
-        if (fadeOverlay) fadeOverlay.style.opacity = String(alpha);
-        if (alpha >= 1) state.blackPainted = true;
-        return;
-      }
-      if (!state.swapped) {
-        if (fadeOverlay) fadeOverlay.style.opacity = '1';
-        if (!state.blackPainted) {
-          state.blackPainted = true;
-          return;
-        }
-        onSwap(state.targetPhase);
-        state.swapped = true;
-        return;
-      }
-      if (elapsed < FADE_DURATION_MS) {
-        const alpha = Math.max(0, 1 - (elapsed - FADE_MIDPOINT_MS) / (FADE_DURATION_MS - FADE_MIDPOINT_MS));
-        if (fadeOverlay) fadeOverlay.style.opacity = String(alpha);
-        return;
-      }
-      if (fadeOverlay) fadeOverlay.style.opacity = '0';
-      state.active = false;
-      if (state.timerId) {
-        clearTimeout(state.timerId);
-        state.timerId = null;
-      }
-    },
-    start(targetPhase) {
-      if (state.active && state.targetPhase === targetPhase) return;
-      if (state.timerId) clearTimeout(state.timerId);
-      state.active = true;
-      state.targetPhase = targetPhase;
-      state.startMs = performance.now();
-      state.blackPainted = false;
-      state.swapped = false;
-      state.timerId = setTimeout(() => {
-        if (!state.active) return;
-        if (!state.swapped) {
-          state.blackPainted = true;
-          onSwap(state.targetPhase);
-          state.swapped = true;
-        }
-        if (fadeOverlay) fadeOverlay.style.opacity = '0';
-        state.active = false;
-        state.timerId = null;
-      }, FADE_DURATION_MS + 40);
-    },
-    clear() {
-      if (state.timerId) {
-        clearTimeout(state.timerId);
-        state.timerId = null;
-      }
-      state.active = false;
-      if (fadeOverlay) fadeOverlay.style.opacity = '0';
-    }
-  };
-}
-
 function sampleSunDir(h, out) {
   if (h >= 6 && h <= 18.5) {
     const u = h <= 12.5 ? 0.5 * (h - 6) / 6.5 : 0.5 + 0.5 * (h - 12.5) / 6;
@@ -224,12 +211,14 @@ export function createPresetBlender(regionOrder, atmospheres, keyframes) {
       hemiIntensity: p.hemiIntensity,
       fogDensity: p.fogDensity,
       exposure: p.exposure,
-      envScale: p.envIntensity / 0.6
+      envScale: p.envIntensity / 0.6,
+      clouds: p.clouds,
+      rays: p.rays
     };
   });
   const hourColors = {};
   const hourNums = {};
-  const mixed = { lightDir: new THREE.Vector3() };
+  const mixed = { lightDir: new THREE.Vector3(), clouds: 0 };
   for (const key of COLOR_KEYS) {
     hourColors[key] = new THREE.Color();
     mixed[key] = new THREE.Color();
@@ -276,6 +265,8 @@ export function createPresetBlender(regionOrder, atmospheres, keyframes) {
     let fogBase = 0;
     let expBase = 0;
     let envScale = 0;
+    let cloudsBase = 0;
+    let raysBase = 0;
     for (let i = 0; i < parsedRegions.length; i++) {
       const r = parsedRegions[i];
       const w = weights ? (weights[r.id] ?? 0) : (i === 0 ? 1 : 0);
@@ -284,12 +275,17 @@ export function createPresetBlender(regionOrder, atmospheres, keyframes) {
       fogBase += r.fogDensity * w;
       expBase += r.exposure * w;
       envScale += r.envScale * w;
+      cloudsBase += r.clouds * w;
+      raysBase += r.rays * w;
     }
     mixed.sunIntensity = hourNums.sunIntensity * sunScale;
     mixed.hemiIntensity = hourNums.hemiIntensity * hemiBase;
     mixed.fogDensity = hourNums.fogDensity * fogBase;
     mixed.exposure = hourNums.exposure * expBase;
     mixed.envIntensity = hourNums.envIntensity * envScale;
+    mixed.clouds = cloudsBase;
+    mixed.rays = Math.min(1, hourNums.rays + raysBase * (1 - hourNums.stars));
+    mixed.stars = hourNums.stars;
     sampleSunDir(h, mixed.lightDir);
     return mixed;
   };

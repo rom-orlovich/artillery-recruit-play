@@ -7,6 +7,7 @@ import {
   getTouchInput,
   updateTouchAutoSprint
 } from './controls-touch.js';
+import { initHelpAndShortcuts } from './help-panel.js';
 
 const keys = new Set();
 let lookSensitivity = 1;
@@ -85,7 +86,8 @@ export function resolveCircleAABB(px, pz, r) {
 
 export function requestGameLock(canvas) {
   runtime.isPlaying = true;
-  if (!runtime.isMobile && canvas && canvas.requestPointerLock) {
+  const guideOfferOpen = Boolean(document.querySelector('#guide-offer:not(.hidden)'));
+  if (!runtime.isMobile && !guideOfferOpen && canvas && canvas.requestPointerLock) {
     try {
       const res = canvas.requestPointerLock();
       if (res && typeof res.catch === 'function') res.catch(() => {});
@@ -185,6 +187,7 @@ export function initControls(canvas, actionCallbacks = {}) {
   });
 
   initTouchControls(canvas, () => callbacks, () => lookSensitivity);
+  initHelpAndShortcuts(callbacks);
 }
 
 export function updatePlayerMovement(dt, camera) {

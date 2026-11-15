@@ -31,7 +31,7 @@
 #full-map-modal button {
   min-width: 44px;
   min-height: 44px;
-  font-size: 13px;
+  font-size: 14px;
   box-sizing: border-box;
 }
 
@@ -83,7 +83,7 @@
 
 .fmmc-objective {
   margin: 0;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.35;
   color: #d7e3e6;
 }
@@ -185,7 +185,7 @@
   border: 1px solid rgba(255, 209, 92, 0.75);
   background: rgba(16, 24, 28, 0.9);
   color: #ffe875;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   cursor: pointer;
 }
@@ -246,7 +246,7 @@
   }
 
   .fmmc-title {
-    font-size: 13px;
+    font-size: 14px;
   }
 
   .fmmc-objective {
@@ -258,7 +258,7 @@
   }
 
   .fmmc-dist {
-    font-size: 13px;
+    font-size: 14px;
   }
 
   .fmmc-legend {

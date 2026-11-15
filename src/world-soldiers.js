@@ -131,7 +131,7 @@ export function initSoldiers(scene, regionOf = null) {
   });
   Promise.all([assetsPromise, whenDohersReady()]).then(() => {
     if (myBuildId !== buildId) return;
-    snapCrewSpawns(spawns, pool);
+    snapCrewSpawns(spawns, pool, regionOf, scene);
   });
 }
 
