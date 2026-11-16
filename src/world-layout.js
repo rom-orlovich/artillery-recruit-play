@@ -31,6 +31,12 @@ export const MAP_DEFS = {
     bounds: [-140, 140, -140, 140], spawn: { x: 0, z: 42, yaw: 0 }, batteryCenter: { x: 0, z: -10 }, mapColor: '#7a6842',
     guns: [{ id: 'BH1', x: -39, z: -10, yaw: 0 }, { id: 'BH2', x: -13, z: -10, yaw: 0 }, { id: 'BH3', x: 13, z: -10, yaw: 0 }, { id: 'BH4', x: 39, z: -10, yaw: 0 }],
     landmarks: [{ x: 0, z: -10, text: 'סוללת בית הלל' }, { x: 24, z: 22, text: 'סככת אוכל' }, { x: -14, z: 22, text: 'חמ"ל מכולות' }, { x: -50, z: 62, text: 'ש"ג בית הלל' }]
+  },
+  tzeelim: {
+    id: 'tzeelim', nameHe: 'צאלים — מל"י', titleHe: 'בסיס צאלים — המרכז הלאומי לאימונים ביבשה', subHe: 'חול מדבר, סוללות עפר ועיר אימונים',
+    bounds: [-140, 140, -140, 140], spawn: { x: 0, z: 46, yaw: 0 }, batteryCenter: { x: 0, z: -8 }, mapColor: '#d8c39a',
+    guns: [{ id: 'TZ1', x: -30, z: -8, yaw: 0 }, { id: 'TZ2', x: -10, z: -8, yaw: 0 }, { id: 'TZ3', x: 10, z: -8, yaw: 0 }, { id: 'TZ4', x: 30, z: -8, yaw: 0 }],
+    landmarks: [{ x: 0, z: -8, text: 'סוללת צאלים' }, { x: 0, z: 58, text: 'סככת האוכל' }, { x: -50, z: -25, text: 'עיר האימונים' }]
   }
 };
 

@@ -4,7 +4,7 @@ import { getCurrentMapId } from './world.js';
 import { getGunDrillInteraction, performGunDrillStep } from './fire-drill.js';
 import { getRoutineInteraction, performRoutineStep } from './daily-routine.js';
 
-const VALID_MAPS = new Set(['shivta', 'yoav', 'line', 'zaura', 'beit_hillel']);
+const VALID_MAPS = new Set(['shivta', 'yoav', 'line', 'zaura', 'beit_hillel', 'tzeelim']);
 let listenersBound = false;
 let currentEntities = null;
 

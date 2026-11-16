@@ -1,6 +1,6 @@
 import { runtime } from './state.js';
 
-const RESERVE_MAPS = new Set(['zaura', 'beit_hillel']);
+const RESERVE_MAPS = new Set(['zaura', 'beit_hillel', 'tzeelim']);
 const DECAY_ALERT_IDLE = 0.35;
 const DECAY_ALERT_GUARD = 0.08;
 const DECAY_MORALE = 0.22;

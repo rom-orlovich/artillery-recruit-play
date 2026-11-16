@@ -114,6 +114,10 @@ function baseHeightForMap(mapId, x, z) {
   if (mapId === 'beit_hillel') {
     return 0.35 * Math.sin(x / 40) * Math.cos(z / 45) - 1.1 * smoothstep(-50, -68, x);
   }
+  if (mapId === 'tzeelim') {
+    const dune = 0.25 * Math.sin(x / 45) * Math.cos(z / 50) + (fbm(x * 0.025, z * 0.025, 2) - 0.5) * 0.3;
+    return dune + 1.5 * smoothstep(75, 125, -z);
+  }
   if (mapId === 'shivta') {
     const flat = 1 - smoothstep(55, 95, Math.hypot(x, z + 15));
     const ridge = 3.2 * smoothstep(65, 102, z);

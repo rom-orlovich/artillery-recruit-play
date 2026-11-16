@@ -167,7 +167,7 @@ export function rebuildEntitiesForMap(mapId) {
     radarDishes.push(...mf.radarDishes);
     const cp = createCheckpointProps(entityGroup);
     checkpoints.push(...cp.checkpoints);
-  } else if (activeMapId === 'zaura' || activeMapId === 'beit_hillel') {
+  } else if (activeMapId === 'zaura' || activeMapId === 'beit_hillel' || activeMapId === 'tzeelim') {
     const guns = MAP_DEFS[activeMapId]?.guns || [];
     if (guns.length) createReserveBatteryProps(entityGroup, guns);
   }

@@ -25,7 +25,7 @@ const REGION_FONT = 'bold 15px Tahoma, Arial, sans-serif';
 const LANDMARK_FONT = 'bold 12px Tahoma, Arial, sans-serif';
 const DETECT_RANGE_M = 80;
 const RESET_RANGE_M = 100;
-const MAP_ICONS = { shivta: '🏜️', yoav: '🏕️', line: '💥', zaura: '🌋', beit_hillel: '🌿' };
+const MAP_ICONS = { shivta: '🏜️', yoav: '🏕️', line: '💥', zaura: '🌋', beit_hillel: '🌿', tzeelim: '🎯' };
 
 let bound = false;
 let zoomMode = 'fit';

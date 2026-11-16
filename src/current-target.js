@@ -8,7 +8,7 @@ import { getMapLabels } from './map-image.js';
 import { getRoutineTarget } from './daily-routine.js';
 
 const RANGE_AREA = { x: 72, z: 0 };
-const RESERVE_MAPS = new Set(['zaura', 'beit_hillel']);
+const RESERVE_MAPS = new Set(['zaura', 'beit_hillel', 'tzeelim']);
 const LEGACY_MAPS = new Set(['shivta', 'yoav', 'line']);
 const ITEM_NAMES = { sandbag: 'שק חול', shell: 'פגז 155 מ"מ', kitbag: 'קיטבג', ammoCrate: 'ארגז תחמושת', crate: 'ארגז' };
 

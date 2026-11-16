@@ -128,6 +128,38 @@ export const MAP_BIOMES = {
         peaks: [{ az: -1.1, width: 0.55, height: 112 }]
       }
     }
+  },
+  tzeelim: {
+    bounds: [-140, 140, -140, 140],
+    tileSize: 140,
+    palette: {
+      dirt: '#d8c39a',
+      dry: '#c9a66b',
+      rock: '#a89478',
+      grass: '#bfa977',
+      road: '#cdb48a',
+      concrete: '#d9d2c2',
+      roof: '#c8c2b2'
+    },
+    skyPreset: 'negev',
+    skylineProfile: {
+      near: {
+        base: 6,
+        amp: 5,
+        seed: 37,
+        colorBottom: '#b9ad94',
+        colorTop: '#cfc6b2',
+        peaks: []
+      },
+      far: {
+        base: 10,
+        amp: 6,
+        seed: 41,
+        colorBottom: '#b9ad94',
+        colorTop: '#cfc6b2',
+        peaks: []
+      }
+    }
   }
 };
 

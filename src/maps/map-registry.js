@@ -4,6 +4,7 @@ import { buildYoav } from '../world-yoav.js';
 import { buildLine } from '../world-line.js';
 import { buildZaura } from './map-zaura.js';
 import { buildBeitHillel } from './map-beit-hillel.js';
+import { buildTzeelim } from './map-tzeelim.js';
 import { mountMapSync, getCurrentMapId as getWorldMapId } from '../world.js';
 
 const BUILDERS = {
@@ -11,7 +12,8 @@ const BUILDERS = {
   yoav: buildYoav,
   line: buildLine,
   zaura: buildZaura,
-  beit_hillel: buildBeitHillel
+  beit_hillel: buildBeitHillel,
+  tzeelim: buildTzeelim
 };
 
 function makeMapEntry(id) {
@@ -31,7 +33,8 @@ export const MAPS = {
   yoav: makeMapEntry('yoav'),
   line: makeMapEntry('line'),
   zaura: makeMapEntry('zaura'),
-  beit_hillel: makeMapEntry('beit_hillel')
+  beit_hillel: makeMapEntry('beit_hillel'),
+  tzeelim: makeMapEntry('tzeelim')
 };
 
 export function getCurrentMapId() {

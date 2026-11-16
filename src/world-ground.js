@@ -100,6 +100,10 @@ function paintBiomeExtras(mapId, proj, ch) {
     strokePolyline(ch.gravel.ctx, proj, [[-68, 0], [66, 0]], 5, 'rgba(255,255,255,0.9)');
     fillRect(ch.gravel.ctx, proj, -8, 22, 46, 20, 'rgba(255,255,255,0.75)');
     softBlob(ch.rock.ctx, proj, -96, 0, 18, 0.6);
+  } else if (mapId === 'tzeelim') {
+    strokePolyline(ch.dirt.ctx, proj, [[0, 46], [0, -8]], 5, 'rgba(255,255,255,0.9)');
+    strokePolyline(ch.dirt.ctx, proj, [[0, 46], [-20, 20], [-48, -6], [-50, -25]], 4.5, 'rgba(255,255,255,0.9)');
+    strokePolyline(ch.gravel.ctx, proj, [[-12, 58], [36, 58]], 8, 'rgba(255,255,255,0.85)');
   }
 }
 
