@@ -14,7 +14,7 @@ const LIGHT = normalize([-1, 1.7, -1]);
 const LEGACY_MAPS = new Set(['shivta', 'yoav', 'line']);
 const BASE_COLORS = {
   shivta: [214, 190, 146], yoav: [176, 152, 108], line: [118, 108, 70],
-  zaura: [138, 126, 88], beit_hillel: [122, 104, 66], kadita: [148, 72, 40]
+  zaura: [138, 126, 88], beit_hillel: [122, 104, 66]
 };
 const COLORS = { asphalt: [66, 67, 72], dirt: [132, 104, 74], rock: [70, 67, 64], gravelGolan: [120, 112, 100], gravelDesert: [196, 180, 150] };
 const WALL_STYLES = { fence: { color: '#d9d6cc', width: 1.2, dash: [3, 3] }, twall: { color: '#c4c0b4', width: 3 }, berm: { color: '#7a6248', width: 5 }, stone: { color: '#4e4b46', width: 3 } };

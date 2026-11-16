@@ -59,7 +59,7 @@ function isGuardSpawn(region, x, z) {
 }
 
 function isRangeSpawn(region, x, z) {
-  return (region === 'shivta' && x > 45) || (region === 'kadita' && x < -10 && z > -5 && z < 12);
+  return (region === 'shivta' && x > 45);
 }
 
 function isCommandSpawn(region, x, z) {

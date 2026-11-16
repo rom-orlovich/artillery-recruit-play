@@ -31,12 +31,6 @@ export const MAP_DEFS = {
     bounds: [-140, 140, -140, 140], spawn: { x: 0, z: 42, yaw: 0 }, batteryCenter: { x: 0, z: -10 }, mapColor: '#7a6842',
     guns: [{ id: 'BH1', x: -39, z: -10, yaw: 0 }, { id: 'BH2', x: -13, z: -10, yaw: 0 }, { id: 'BH3', x: 13, z: -10, yaw: 0 }, { id: 'BH4', x: 39, z: -10, yaw: 0 }],
     landmarks: [{ x: 0, z: -10, text: 'סוללת בית הלל' }, { x: 24, z: 22, text: 'סככת אוכל' }, { x: -14, z: 22, text: 'חמ"ל מכולות' }, { x: -50, z: 62, text: 'ש"ג בית הלל' }]
-  },
-  kadita: {
-    id: 'kadita', nameHe: 'כדיתא (גליל עליון)', titleHe: 'גזרת כדיתא — הגליל העליון', subHe: 'אדמת טרה רוסה ותעלות קשר',
-    bounds: [-140, 140, -140, 140], spawn: { x: 0, z: 40, yaw: 0 }, batteryCenter: { x: 0, z: -8 }, mapColor: '#8a3f22',
-    guns: [{ id: 'K1', x: -34, z: 4, yaw: -0.15 }, { id: 'K2', x: -11, z: -4, yaw: -0.1 }, { id: 'K3', x: 14, z: -11, yaw: 0.05 }, { id: 'K4', x: 38, z: -18, yaw: 0.1 }],
-    landmarks: [{ x: 0, z: -8, text: 'סוללת כדיתא' }, { x: 14, z: 18, text: 'אוהל מועדון' }, { x: -26, z: 34, text: 'שלט כדיתא' }, { x: -12, z: -52, text: 'רכס האלון' }]
   }
 };
 

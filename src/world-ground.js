@@ -100,11 +100,6 @@ function paintBiomeExtras(mapId, proj, ch) {
     strokePolyline(ch.gravel.ctx, proj, [[-68, 0], [66, 0]], 5, 'rgba(255,255,255,0.9)');
     fillRect(ch.gravel.ctx, proj, -8, 22, 46, 20, 'rgba(255,255,255,0.75)');
     softBlob(ch.rock.ctx, proj, -96, 0, 18, 0.6);
-  } else if (mapId === 'kadita') {
-    strokePolyline(ch.dirt.ctx, proj, [[-62, 42], [72, 42]], 4.5, 'rgba(255,255,255,0.9)');
-    fillRect(ch.gravel.ctx, proj, 14, 18, 18, 12, 'rgba(255,255,255,0.55)');
-    softBlob(ch.rock.ctx, proj, -85, -80, 32, 0.65);
-    softBlob(ch.rock.ctx, proj, 85, -75, 32, 0.65);
   }
 }
 

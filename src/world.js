@@ -51,7 +51,7 @@ export function getRegionAt() {
 }
 
 function mapSkyWeights(id) {
-  return { shivta: 0, yoav: 0, line: 0, zaura: 0, beit_hillel: 0, kadita: 0, [id]: 1 };
+  return { shivta: 0, yoav: 0, line: 0, zaura: 0, beit_hillel: 0, [id]: 1 };
 }
 
 function createFlagTexture() {

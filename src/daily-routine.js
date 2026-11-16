@@ -100,6 +100,10 @@ function completeRoutineTask(task) {
   return true;
 }
 
+function completeFitnessTask() {
+  return completeRoutineTask(ROUTINE_TASKS[0]);
+}
+
 export function getDailyRoutine() {
   const r = ensureRoutineSave();
   for (let i = 0; i < ROUTINE_TASKS.length; i += 1) {
@@ -218,7 +222,7 @@ export function updateDailyRoutine(dt) {
   if (getCurrentMapId() !== ROUTINE_MAP_ID) return;
   const r = ensureRoutineSave();
 
-  updateFitnessRun(dt, r.done.fitness, () => completeRoutineTask(ROUTINE_TASKS[0]));
+  updateFitnessRun(dt, r.done.fitness, completeFitnessTask);
 
   if (guardState.active) {
     if (r.done.guard) {

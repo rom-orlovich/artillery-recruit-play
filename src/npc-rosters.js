@@ -133,29 +133,5 @@ export const MAP_NPC_ROSTERS = {
       { x: 38, z: 22, ry: 0, pose: 'stand', role: 'טען', rank: 'טוראי', station: 'stove' },
       { x: -50, z: 62, ry: Math.PI, pose: 'stand', role: 'ש.ג', rank: 'טוראי' }
     ]
-  },
-  kadita: {
-    minCount: 9,
-    heroGunId: 'hero',
-    heroGunPos: { x: 0, z: -22 },
-    ammoDump: { x: -48, z: 20 },
-    shellRack: { x: -8, z: -16 },
-    generatorPos: { x: -44, z: 20 },
-    stove: { x: 24, z: 18 },
-    cots: [{ x: -26, z: -6 }, { x: 10, z: -6 }, { x: -12, z: 16 }],
-    guardPosts: [{ x: -12, z: -52 }, { x: -18, z: 3 }],
-    officers: [
-      { officerId: 'mefaketz', name: 'איתי', rank: 'סגן', role: 'מפקד צוות', x: 14, z: 18, ry: Math.PI, pose: 'stand' }
-    ],
-    fallbackEnlisted: [
-      { x: 0, z: -21, ry: 0, pose: 'arms', crewOf: 'K2', role: 'תותחן', rank: 'רב"ט' },
-      { x: -1.5, z: -22, ry: 0, pose: 'arms', crewOf: 'K2', role: 'טען', rank: 'טוראי' },
-      { x: 1.5, z: -22, ry: 0, pose: 'arms', crewOf: 'K2', role: 'מפקד צוות', rank: 'סמל' },
-      { x: 0, z: -23.5, ry: 0, pose: 'arms', crewOf: 'K2', role: 'נהג', rank: 'טוראי' },
-      { x: -34, z: -22, ry: 0, pose: 'stand', role: 'תותחן', rank: 'טוראי' },
-      { x: 34, z: -22, ry: 0, pose: 'stand', role: 'טען', rank: 'טוראי' },
-      { x: -18, z: 3, ry: 0, pose: 'stand', role: 'מטווח/רוכ"ש', rank: 'רב"ט' },
-      { x: 24, z: 18, ry: 0, pose: 'stand', role: 'נהג', rank: 'טוראי', station: 'stove' }
-    ]
   }
 };

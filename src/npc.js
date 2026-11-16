@@ -5,6 +5,8 @@ import { snapGround } from './npc-path.js';
 import { bindNpcOrderStore, issueNpcOrder } from './npc-orders.js';
 import { faceNpcToward, stepNpcState } from './npc-routines.js';
 import { spawnNpcsForMap } from './npc-spawner.js';
+import { isNpcInChat, resetNpcChat, updateNpcChat } from './npc-chat.js';
+import { isCrewOnBreak, resetCrewBreaks, updateCrewBreaks } from './npc-crew-breaks.js';
 
 const TALK_DEFAULT_DIST = 6;
 const TALK_DOT_MIN = 0.35;
@@ -35,6 +37,8 @@ export function initNpcsForMap(mapId, scene) {
   followers.length = 0;
   byId.clear();
   activeTalkNpc = null;
+  resetNpcChat();
+  resetCrewBreaks();
 
   currentMapId = mapId || 'shivta';
   const roster = MAP_NPC_ROSTERS[currentMapId] || MAP_NPC_ROSTERS.shivta;
@@ -125,8 +129,15 @@ export function updateNpcs(dt, playerPos, timeOfDayHours) {
   const isNight = h >= NIGHT_START_H || h < NIGHT_END_H;
   const roster = MAP_NPC_ROSTERS[currentMapId] || MAP_NPC_ROSTERS.shivta;
 
+  updateNpcChat(dt, npcs, isNight);
+  updateCrewBreaks(dt, npcs, isNight, roster);
+
   for (let i = 0; i < npcs.length; i++) {
     const n = npcs[i];
+    if (isNpcInChat(n) || isCrewOnBreak(n)) {
+      n.accumDt = 0;
+      continue;
+    }
     const dx = n.pos.x - playerPos.x;
     const dz = n.pos.z - playerPos.z;
     const far = dx * dx + dz * dz > FAR_AI_DIST_SQ;

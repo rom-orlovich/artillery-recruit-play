@@ -89,11 +89,6 @@ export function distanceToSegment(px, pz, ax, az, bx, bz) {
   return { dist: Math.hypot(px - (ax + dx * t), pz - (az + dz * t)), t };
 }
 
-function floorStep(t) {
-  const fl = Math.floor(t);
-  return fl + smoothstep(0.75, 1.0, t - fl);
-}
-
 function legacyFeaturesHeight(x, z, h) {
   const features = layout.FEATURES;
   if (!features) return h;
@@ -118,9 +113,6 @@ function baseHeightForMap(mapId, x, z) {
   }
   if (mapId === 'beit_hillel') {
     return 0.35 * Math.sin(x / 40) * Math.cos(z / 45) - 1.1 * smoothstep(-50, -68, x);
-  }
-  if (mapId === 'kadita') {
-    return -0.045 * z + 1.4 * floorStep(z / 24) + 0.8 * Math.sin(x / 32);
   }
   if (mapId === 'shivta') {
     const flat = 1 - smoothstep(55, 95, Math.hypot(x, z + 15));

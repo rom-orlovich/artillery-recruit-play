@@ -3,6 +3,7 @@ import { resetInputState, releaseGameLock } from './controls.js';
 import { TASK_KEYS, TASKS, getDialogueChoices, getDialogueLine, isOrderable } from './npc-data.js';
 import { getNpcs, issueNpcOrder, setTalkTarget } from './npc.js';
 import { initNpcHud, renderTaskBadges, updateNpcHud } from './npc-hud-ui.js';
+import { initNpcChatUi, updateNpcChatBubbles } from './npc-chat-ui.js';
 import { applyTrustDelta, getTrustGreetingPrefix } from './battery-events.js';
 import { getNextRoutineTask, setCommanderRoutineTarget } from './daily-routine.js';
 
@@ -74,6 +75,7 @@ export function initNpcUi(rootEl = document.body) {
   uiReady = true;
   ensureStylesheet();
   initNpcHud(rootEl);
+  initNpcChatUi(rootEl);
 
   panelEl = document.createElement('div');
   panelEl.id = 'npc-dialogue-panel';
@@ -213,4 +215,5 @@ export function closeDialogue() {
 export function updateNpcUi(nearestNpc, playerRankId, camera) {
   initNpcUi();
   updateNpcHud(nearestNpc, camera, getNpcs());
+  updateNpcChatBubbles(camera, getNpcs(), player.pos);
 }

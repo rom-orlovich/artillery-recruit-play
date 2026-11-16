@@ -128,43 +128,6 @@ export const MAP_BIOMES = {
         peaks: [{ az: -1.1, width: 0.55, height: 112 }]
       }
     }
-  },
-  kadita: {
-    bounds: [-140, 140, -140, 140],
-    tileSize: 140,
-    palette: {
-      dirt: '#a5522c',
-      dry: '#9e4b28',
-      rock: '#6e563e',
-      grass: '#823d20',
-      road: '#b59268',
-      concrete: '#d2cbb8',
-      roof: '#8f8664'
-    },
-    skyPreset: 'galilee',
-    skylineProfile: {
-      near: {
-        base: 24,
-        amp: 28,
-        seed: 37,
-        colorBottom: '#354438',
-        colorTop: '#465848',
-        peaks: [
-          { az: -2.4, width: 0.75, height: 82 },
-          { az: 0.9, width: 0.7, height: 48 }
-        ]
-      },
-      far: {
-        base: 40,
-        amp: 36,
-        seed: 41,
-        colorBottom: '#5a6d7b',
-        colorTop: '#7f96a6',
-        snowLine: 96,
-        snowColor: '#f0f4f8',
-        peaks: [{ az: -0.9, width: 0.5, height: 94 }]
-      }
-    }
   }
 };
 

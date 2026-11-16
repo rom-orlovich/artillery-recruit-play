@@ -16,7 +16,7 @@ PROXY_GEOMETRY.userData.shared = true;
 
 export const colliders = [];
 export const worldShootables = [];
-export const regionShootables = { shivta: [], yoav: [], line: [], zaura: [], beit_hillel: [], kadita: [] };
+export const regionShootables = { shivta: [], yoav: [], line: [], zaura: [], beit_hillel: [] };
 export const distanceCulled = [];
 
 const atlasCanvas = document.createElement('canvas');
