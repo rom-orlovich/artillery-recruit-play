@@ -185,7 +185,7 @@ export function openModalByName(name) {
     openSettingsModal();
     return;
   }
-  if (name === 'map') {
+  if (name === 'map' || name === 'full-map-modal' || name === 'full-map') {
     savePlayerPosition();
     resetInputState();
     openFullMapFromPause();

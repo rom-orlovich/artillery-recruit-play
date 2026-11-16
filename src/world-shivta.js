@@ -93,24 +93,20 @@ function addParadeGround(bake) {
   bake.box('asphaltSlab', plaza.w, 0.08, plaza.d, plaza.x, 0.04, plaza.z);
   bake.box('concrete', 6, 0.35, 2.4, plaza.x, 0.17, plaza.z - 3.6);
   for (let i = 0; i < 6; i++) {
-    for (const row of [0, 1]) {
-      const x = -6 + i * 2.4;
-      const z = 26 + row * 1.7;
-      addSoldier(bake, x, 0, z, Math.PI);
-    }
+    for (const row of [0, 1]) addSoldier(bake, -6 + i * 2.4, 0, 26 + row * 1.7, Math.PI);
   }
   addCollider(REGION, 0, 26, 13, 0.6, 1.8);
   addCollider(REGION, 0, 27.7, 13, 0.6, 1.8);
 }
 
-function addHowitzerPark(bake, group) {
+function addHowitzerPark(bake, mapGroup) {
   const park = footprint('shivtaPark');
   bake.box('concrete', park.w, 0.1, park.d, park.x, 0.05, park.z);
   for (const [px, pz] of [[16, 11], [32, 11], [16, 33], [32, 33], [24, 11], [24, 33]]) {
     bake.mesh('paint', new THREE.CylinderGeometry(0.12, 0.14, 6.4, 8), px, 3.2, pz, 0, 0x7d8285);
   }
   bake.box('paint', 17, 0.1, 23, 24, 6.45, 22, 0, 0xd9cfb2);
-  const slot = placeDoher(group, PARK_HERO.x, PARK_HERO.y, PARK_HERO.z, PARK_HERO.ry, 0.04);
+  const slot = placeDoher(mapGroup, PARK_HERO.x, PARK_HERO.y, PARK_HERO.z, PARK_HERO.ry, 0.04);
   addGunCrew(slot, PARK_CREW, PARK_HERO.x, PARK_HERO.z, 'shivta-park');
   addCollider(REGION, 24, 18, 6.6, 3.4, 3.2);
   addRoem(bake, 24.4, 0, 28, -Math.PI / 2);
@@ -155,19 +151,17 @@ function addFieldTraining(bake) {
   }
 }
 
-function addScatter(group) {
+function addScatter(mapGroup) {
   const random = createSeededRandom(1337);
   const stones = [];
   const stoneColors = [];
   const shrubs = [];
   const shrubColors = [];
-  const insideCompound = (x, z) => Math.abs(x) < 38 && Math.abs(z) < 38;
-  const onRange = (x, z) => x > 42 && x < 92 && Math.abs(z) < 20;
-  const onRoad = (x, z) => Math.abs(x) < 5 && z < 120;
+  const blocked = (x, z) => (Math.abs(x) < 38 && Math.abs(z) < 38) || (x > 42 && x < 92 && Math.abs(z) < 20) || (Math.abs(x) < 5 && z < 120);
   while (stones.length < STONE_COUNT) {
     const x = -200 + random() * 400;
     const z = -128 + random() * 220;
-    if (insideCompound(x, z) || onRange(x, z) || onRoad(x, z)) continue;
+    if (blocked(x, z)) continue;
     const s = 0.25 + Math.pow(random(), 3) * 1.3;
     stones.push(composeMatrix(x, ground(x, z) + s * 0.2, z, random() * 3, random() * 6, random() * 3, s * 1.3, s * 0.7, s));
     stoneColors.push(new THREE.Color(0xd2bf98).multiplyScalar(0.8 + random() * 0.3));
@@ -175,14 +169,13 @@ function addScatter(group) {
   while (shrubs.length < SHRUB_COUNT) {
     const x = -205 + random() * 410;
     const z = -128 + random() * 225;
-    if (insideCompound(x, z) || onRange(x, z) || onRoad(x, z)) continue;
-    if (fbm(x * 0.03, z * 0.03, 2) < 0.42) continue;
+    if (blocked(x, z) || fbm(x * 0.03, z * 0.03, 2) < 0.42) continue;
     const s = 0.5 + random() * 0.7;
     shrubs.push(composeMatrix(x, ground(x, z), z, 0, random() * 6, 0, s, s * 0.8, s));
     shrubColors.push(new THREE.Color(random() > 0.5 ? 0x9c9a74 : 0xb4a37a).multiplyScalar(0.75 + random() * 0.3));
   }
-  group.add(createInstanced(new THREE.DodecahedronGeometry(0.5, 0), 'rock', stones, stoneColors));
-  group.add(createInstancedChunks(createTuftGeometry(), 'grassTuft', shrubs, shrubColors, 110, 70));
+  mapGroup.add(createInstanced(new THREE.DodecahedronGeometry(0.5, 0), 'rock', stones, stoneColors));
+  mapGroup.add(createInstancedChunks(createTuftGeometry(), 'grassTuft', shrubs, shrubColors, 110, 70));
 }
 
 export function createTuftGeometry() {
@@ -203,20 +196,10 @@ export function createTuftGeometry() {
   return geometry;
 }
 
-export function buildShivta(scene) {
-  const group = new THREE.Group();
-  group.name = 'region-shivta';
+export function buildShivta(mapGroup) {
   const bake = createBake();
-  for (const fp of FOOTPRINTS.filter((f) => f.region === REGION && f.kind === 'building')) {
-    const options = {
-      shivtaMess: { doors: [-5, -1.5, 2, 5.5] },
-      shivtaShop: { doorSide: -1 },
-      shivtaArmory: { doorSide: 1 },
-      shivtaSim: { doorSide: 1 },
-      shivtaClinic: {}
-    }[fp.id];
-    addRenovatedBuilding(bake, fp, options);
-  }
+  const optionsById = { shivtaMess: { doors: [-5, -1.5, 2, 5.5] }, shivtaShop: { doorSide: -1 }, shivtaArmory: { doorSide: 1 }, shivtaSim: { doorSide: 1 }, shivtaClinic: {} };
+  for (const fp of FOOTPRINTS.filter((f) => f.region === REGION && f.kind === 'building')) addRenovatedBuilding(bake, fp, optionsById[fp.id]);
   const clinic = footprint('shivtaClinic');
   addSign(bake, 'מרפאה — מד"א צבאי', clinic.x + 1.3, 2.35, clinic.z + clinic.d / 2 + 0.1, 0, 2.2, 0.55, { bg: '#f2f0ea', fg: '#c62828', border: '#c62828' });
   bake.box('paint', 1.0, 1.1, 5.5, 19.2, 0.55, -14, 0, 0x6c5136);
@@ -231,15 +214,14 @@ export function buildShivta(scene) {
   }
   addGate(bake);
   addParadeGround(bake);
-  addHowitzerPark(bake, group);
+  addHowitzerPark(bake, mapGroup);
   addRange(bake);
   addFieldTraining(bake);
   TREES.filter(([, z]) => z > -128).forEach(([x, z, kind], i) => {
     addTree(bake, x, ground(x, z), z, kind, i + 3);
     addCollider(REGION, x, z, 0.6, 0.6, 3);
   });
-  group.add(bake.build('shivta-static'));
-  addScatter(group);
-  scene.add(group);
-  return group;
+  mapGroup.add(bake.build('shivta-static'));
+  addScatter(mapGroup);
+  return mapGroup;
 }

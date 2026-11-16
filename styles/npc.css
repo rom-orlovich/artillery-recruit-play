@@ -1,0 +1,139 @@
+#npc-name-tag {
+  position: fixed;
+  transform: translate(-50%, -100%);
+  background: rgba(15, 22, 18, 0.88);
+  color: #e9f2df;
+  border: 1px solid rgba(139, 173, 107, 0.7);
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 42;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+}
+
+#npc-dialogue-panel {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 12, 10, 0.62);
+  display: none;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 14px;
+  z-index: 90;
+}
+
+.npc-card {
+  width: min(560px, 100%);
+  max-height: 82vh;
+  overflow-y: auto;
+  background: #171e19;
+  color: #eef3e8;
+  border: 1px solid #4e6347;
+  border-radius: 12px;
+  padding: 14px 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.npc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 15px;
+  color: #b7d79a;
+}
+
+#npc-trust-badge {
+  font-size: 12px;
+  background: rgba(102, 145, 82, 0.22);
+  border: 1px solid rgba(134, 182, 110, 0.45);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.npc-line {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.npc-choices,
+#npc-order-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.npc-choice,
+.npc-order,
+#npc-order-btn,
+#npc-close {
+  border: 1px solid #58714e;
+  background: #243026;
+  color: #f0f5ea;
+  border-radius: 8px;
+  padding: 7px 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.npc-choice:hover,
+.npc-order:hover,
+#npc-order-btn:hover {
+  background: #324435;
+}
+
+.npc-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+#npc-close {
+  background: #3d2c28;
+  border-color: #87544a;
+}
+
+#npc-map-picker {
+  display: none;
+  flex-direction: column;
+  gap: 6px;
+}
+
+#npc-map-pad {
+  width: 100%;
+  height: 110px;
+  border-radius: 8px;
+  border: 1px dashed #7ba368;
+  background: radial-gradient(circle at center, rgba(123, 163, 104, 0.25), rgba(20, 28, 22, 0.9));
+  cursor: crosshair;
+}
+
+#npc-task-badges {
+  position: fixed;
+  top: 56px;
+  left: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  pointer-events: none;
+  z-index: 35;
+}
+
+.map-npc-task {
+  background: rgba(18, 26, 20, 0.85);
+  color: #dbe8ce;
+  border: 1px solid rgba(126, 164, 104, 0.55);
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 12px;
+}

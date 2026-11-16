@@ -1,5 +1,6 @@
 import { runtime } from './state.js';
 import { showToast } from './hud.js';
+import { startReloadAnimation, isReloading } from './combat-effects.js';
 
 let highlightTimer = null;
 
@@ -23,7 +24,7 @@ export function renderKeysTab() {
     ['J', 'פתיחת יומן המשימות והקמפיין'],
     ['Esc', 'השהיית המשחק או סגירת חלון'],
     ['H / F1', 'פתיחה וסגירה של מסך העזרה'],
-    ['R', 'טעינה ואיפוס קירור הנשק לירי'],
+    ['R', 'החלפת מחסנית וטעינת הנשק'],
     ['Tab', 'הדגשת היעד הנוכחי בראש המסך']
   ];
   el.innerHTML = [
@@ -78,11 +79,12 @@ export function initHelpKeys({ isHelpOpen, isPauseVisible, openHelpPanel, closeH
       highlightObjectiveBanner();
       return;
     }
-    if (e.code === 'KeyR' && runtime.isPlaying) {
+    if (e.code === 'KeyR' && runtime.isPlaying && !runtime.isDead && !runtime.paused && !runtime.modalOpen) {
       e.preventDefault();
-      runtime.shootCooldown = 0;
-      runtime.recoil = 0;
-      showToast('🔄 הנשק מוכן לירי', 1400);
+      if (!isReloading()) {
+        startReloadAnimation();
+        showToast('🔄 טוען מחסנית...', 1200);
+      }
     }
   }, true);
 }

@@ -12,6 +12,7 @@ const SIGHT_HEIGHT = 0.042;
 const M16_URL = new URL('../assets/models/m16.glb', import.meta.url).href;
 const RELOAD_DURATION = 1.2;
 const RELOAD_DROP = 0.12;
+const PROC_MAG_BASE_Y = -0.08;
 const particles = [];
 
 let weaponGroup = null;
@@ -73,6 +74,7 @@ function setupM16Scene(sourceScene, targetRifleGroup) {
 
   glbMag = glbRoot.getObjectByName('magazine') || null;
   glbMagBaseY = glbMag ? glbMag.position.y : 0;
+  if (procMag) procMag.position.y = PROC_MAG_BASE_Y;
 
   glbRoot.rotation.x = Math.PI / 2;
   glbPivot.position.set(M16_EYE.x - weaponBasePos.x, M16_EYE.y - weaponBasePos.y, M16_EYE.z - weaponBasePos.z);
@@ -105,11 +107,19 @@ export function getWeaponGroup() {
   return weaponGroup;
 }
 
+export function isReloading() {
+  return reloadTime >= 0 || Boolean(runtime.reloading);
+}
+
 export function startReloadAnimation() {
+  if (reloadTime >= 0) return;
   reloadTime = 0;
+  runtime.reloading = true;
 }
 
 export function createWeaponModel() {
+  reloadTime = -1;
+  runtime.reloading = false;
   weaponGroup = new THREE.Group();
   rifleGroup = new THREE.Group();
   rifleGroup.position.set(weaponBasePos.x, weaponBasePos.y, weaponBasePos.z);
@@ -135,7 +145,7 @@ export function createWeaponModel() {
   proceduralGroup.add(stock);
 
   procMag = new THREE.Mesh(new THREE.BoxGeometry(0.034, 0.12, 0.056), gunMetal);
-  procMag.position.set(0, -0.08, -0.06);
+  procMag.position.set(0, PROC_MAG_BASE_Y, -0.06);
   procMag.rotation.x = 0.16;
   proceduralGroup.add(procMag);
 
@@ -206,11 +216,12 @@ export function updateWeaponVisuals(dt) {
     let drop = 0;
     if (reloadTime >= RELOAD_DURATION) {
       reloadTime = -1;
+      runtime.reloading = false;
     } else {
       drop = Math.sin((reloadTime / RELOAD_DURATION) * Math.PI) * RELOAD_DROP;
     }
     if (glbMag) glbMag.position.y = glbMagBaseY - drop;
-    else if (procMag) procMag.position.y = -0.08 - drop;
+    else if (procMag) procMag.position.y = PROC_MAG_BASE_Y - drop;
   }
   const showSight = Boolean(save.gear.sight);
   if (sightMesh) sightMesh.visible = showSight;

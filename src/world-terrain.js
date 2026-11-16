@@ -1,15 +1,35 @@
 import * as THREE from 'three';
-import { TERRAIN_EXTENT, FEATURES, FLAT_ZONES, GUNS, BERM, DESERT_EDGE_Z } from './world-layout.js';
+import { MAP_BIOMES } from './maps/map-biomes.js';
+import * as layout from './world-layout.js';
 
-const PLAY_BOX = { minX: -200, maxX: 200, minZ: -422, maxZ: 92 };
-const EDGE_RAMP = 75;
-const EDGE_HEIGHT = 16;
-const DEFAULT_KEEP = 0.05;
-const TILE_SIZE_X = 300;
-const TILE_SIZE_Z = 227;
-const GRID_STEP = 4;
-const BERM_STEP = 0.55;
 const NORMAL_EPS = 0.75;
+const BERM_STEP = 0.75;
+const DEFAULT_BERM = { halfWidth: 7.5, back: 3.8, front: -7.4, gapFrom: 2, height: 2.3, profile: 3.2 };
+
+let activeMapId = 'shivta';
+let activeGuns = [];
+let activeMapGroup = null;
+
+function mapGunList(guns) {
+  return (Array.isArray(guns) ? guns : []).map((g) => {
+    const gx = g.x ?? g.pos?.[0] ?? g.rear?.[0] ?? 0;
+    const gz = g.z ?? g.pos?.[1] ?? g.rear?.[1] ?? 0;
+    const yaw = g.yaw ?? 0;
+    const fx = -Math.sin(yaw);
+    const fz = -Math.cos(yaw);
+    return { gx, gz, yaw, fx, fz, lx: fz, lz: -fx };
+  });
+}
+
+function getEffectiveGuns() {
+  if (activeGuns.length) return activeGuns;
+  const defGuns = layout.MAP_DEFS?.[activeMapId]?.guns;
+  return defGuns?.length ? mapGunList(defGuns) : [];
+}
+
+export function getActiveTerrainMap() {
+  return activeMapId;
+}
 
 function hash2(ix, iz) {
   let h = (Math.imul(ix, 374761393) + Math.imul(iz, 668265263)) | 0;
@@ -55,7 +75,10 @@ function bell(t) {
 }
 
 export function desertFactor(z) {
-  return smoothstep(DESERT_EDGE_Z.end, DESERT_EDGE_Z.start, z);
+  if (activeMapId === 'shivta') return 1;
+  const edge = layout.DESERT_EDGE_Z;
+  if (edge) return smoothstep(edge.end, edge.start, z);
+  return 0;
 }
 
 export function distanceToSegment(px, pz, ax, az, bx, bz) {
@@ -66,100 +89,122 @@ export function distanceToSegment(px, pz, ax, az, bx, bz) {
   return { dist: Math.hypot(px - (ax + dx * t), pz - (az + dz * t)), t };
 }
 
-function distanceToPolyline(px, pz, points) {
-  let best = Infinity;
-  for (let i = 0; i < points.length - 1; i++) {
-    const { dist } = distanceToSegment(px, pz, points[i][0], points[i][1], points[i + 1][0], points[i + 1][1]);
-    if (dist < best) best = dist;
-  }
-  return best;
+function floorStep(t) {
+  const fl = Math.floor(t);
+  return fl + smoothstep(0.75, 1.0, t - fl);
 }
 
-function relief(x, z) {
-  const broad = fbm(x * 0.0085 + 11, z * 0.0085 - 7, 3);
-  const detail = fbm(x * 0.05, z * 0.05, 2);
-  const golan = (broad - 0.5) * 8 + (detail - 0.5) * 1.1;
-  const duneLine = Math.sin(x * 0.045 + z * 0.02 + broad * 5);
-  const dunes = (broad - 0.5) * 3 + duneLine * 0.6 * smoothstep(60, 140, Math.abs(x)) + (detail - 0.5) * 0.5;
-  const desert = desertFactor(z);
-  return golan + (dunes - golan) * desert;
-}
-
-function zoneWeight(zone, x, z) {
-  if (zone.rect) {
-    const [minX, maxX, minZ, maxZ] = zone.rect;
-    const dx = Math.max(minX - x, 0, x - maxX);
-    const dz = Math.max(minZ - z, 0, z - maxZ);
-    return 1 - smoothstep(0, zone.feather, Math.hypot(dx, dz));
-  }
-  const [cx, cz, radius] = zone.circle;
-  return 1 - smoothstep(radius, radius + zone.feather, Math.hypot(x - cx, z - cz));
-}
-
-function flattenFactor(x, z) {
-  let flat = 0;
-  for (const zone of FLAT_ZONES) {
-    const weight = zoneWeight(zone, x, z) * (1 - (zone.keep ?? DEFAULT_KEEP));
-    if (weight > flat) flat = weight;
-  }
-  return flat;
-}
-
-function edgeRamp(x, z) {
-  const out = Math.max(0, PLAY_BOX.minX - x, x - PLAY_BOX.maxX, PLAY_BOX.minZ - z, z - PLAY_BOX.maxZ);
-  if (out <= 0) return 0;
-  return smoothstep(0, EDGE_RAMP, out) * (EDGE_HEIGHT + fbm(x * 0.02, z * 0.02, 2) * 14);
-}
-
-function getBaseHeight(x, z) {
-  let h = relief(x, z) * (1 - flattenFactor(x, z)) + edgeRamp(x, z);
-  for (const hill of FEATURES.hills) {
+function legacyFeaturesHeight(x, z, h) {
+  const features = layout.FEATURES;
+  if (!features) return h;
+  for (const hill of features.hills || []) {
     h += hill.height * bell(Math.hypot(x - hill.x, z - hill.z) / hill.radius);
   }
-  for (const ridge of FEATURES.ridges) {
+  for (const ridge of features.ridges || []) {
     const { dist, t } = distanceToSegment(x, z, ridge.from[0], ridge.from[1], ridge.to[0], ridge.to[1]);
     h += ridge.height * bell(dist / ridge.halfWidth) * smoothstep(0, 0.12, t) * smoothstep(1, 0.88, t);
   }
-  for (const wadi of FEATURES.wadis) {
-    h -= wadi.depth * bell(distanceToPolyline(x, z, wadi.points) / wadi.halfWidth);
-  }
-  for (const plateau of FEATURES.plateaus) {
-    const weight = 1 - smoothstep(plateau.radius, plateau.radius + plateau.falloff, Math.hypot(x - plateau.x, z - plateau.z));
-    h += (plateau.height - h) * weight;
+  for (const plateau of features.plateaus || []) {
+    const w = 1 - smoothstep(plateau.radius, plateau.radius + plateau.falloff, Math.hypot(x - plateau.x, z - plateau.z));
+    h += (plateau.height - h) * w;
   }
   return h;
 }
 
-function bermSegments(gun) {
-  const [rx, rz] = gun.rear;
-  const { halfWidth: w, back, front, gapFrom } = BERM;
-  return [
-    [rx - w, rz + back, rx + gapFrom, rz + back],
-    [rx - w, rz + back, rx - w, rz + front],
-    [rx + w, rz + back - 2.5, rx + w, rz + front]
-  ];
+function baseHeightForMap(mapId, x, z) {
+  if (mapId === 'zaura') {
+    const raw = 1.6 * Math.sin(x / 55) + 1.2 * Math.cos(z / 48) + 4.5 * smoothstep(30, 95, -z - 0.4 * x);
+    return raw + (fbm(x * 0.03, z * 0.03, 2) - 0.5) * 0.35;
+  }
+  if (mapId === 'beit_hillel') {
+    return 0.35 * Math.sin(x / 40) * Math.cos(z / 45) - 1.1 * smoothstep(-50, -68, x);
+  }
+  if (mapId === 'kadita') {
+    return -0.045 * z + 1.4 * floorStep(z / 24) + 0.8 * Math.sin(x / 32);
+  }
+  if (mapId === 'shivta') {
+    const flat = 1 - smoothstep(55, 95, Math.hypot(x, z + 15));
+    const ridge = 3.2 * smoothstep(65, 102, z);
+    const undul = (0.4 * Math.sin(x * 0.04) * Math.cos(z * 0.035) + (fbm(x * 0.025, z * 0.025, 2) - 0.5) * 0.45) * (1 - flat * 0.85);
+    return undul + ridge;
+  }
+  if (mapId === 'yoav') {
+    const flat = 1 - smoothstep(32, 62, Math.hypot(x + 110, z + 179));
+    const swell = (2.5 * Math.sin((x + 110) * 0.045) * Math.cos((z + 179) * 0.05) + (fbm(x * 0.02, z * 0.02, 2) - 0.5) * 1.4) * (1 - flat * 0.92);
+    return swell;
+  }
+  const flatBat = 1 - smoothstep(45, 78, Math.max(Math.abs(x - 58) * 0.45, Math.abs(z + 298)));
+  const flatSpawn = 1 - smoothstep(22, 42, Math.hypot(x + 57, z + 244));
+  const keep = Math.max(flatBat, flatSpawn);
+  const wadi = -2.4 * bell(Math.abs(z + 348) / 22);
+  const northRidge = 28 * smoothstep(-368, -445, z) * (0.65 + 0.35 * Math.sin(x * 0.035));
+  const detail = (fbm(x * 0.025, z * 0.025, 3) - 0.5) * 4.5 * (1 - keep * 0.9);
+  return legacyFeaturesHeight(x, z, detail + wadi + northRidge);
 }
 
-const BERM_SEGMENTS = GUNS.map((gun) => ({ gun, segments: bermSegments(gun) }));
+function evalGunPit(x, z, gun, baseFn) {
+  const dx = x - gun.gx;
+  const dz = z - gun.gz;
+  if (Math.abs(dx) > 13.5 || Math.abs(dz) > 13.5) return { floorW: 0, floorY: 0, berm: 0 };
+  const f = dx * gun.fx + dz * gun.fz;
+  const l = dx * gun.lx + dz * gun.lz;
+  if (Math.abs(l) > 9.5 || f < -6.5 || f > 13.0) return { floorW: 0, floorY: 0, berm: 0 };
+  const absL = Math.abs(l);
+  const floorW =
+    (1 - smoothstep(3.4, 4.4, absL)) *
+    smoothstep(-4.2, -2.8, f) *
+    (1 - smoothstep(7.0, 8.2, f));
+  const bermCfg = layout.BERM || DEFAULT_BERM;
+  const wallCenterL = bermCfg.halfWidth - bermCfg.profile * 0.5;
+  const wallFrontInner = -bermCfg.front - bermCfg.profile * 0.5;
+  const wallFrontOuter = -bermCfg.front;
+  const wallBackF = -bermCfg.gapFrom;
+  const frontSpanF = Math.max(wallFrontInner, Math.min(wallFrontOuter, f));
+  const dFront = distanceToSegment(f, l, frontSpanF, -wallCenterL, frontSpanF, wallCenterL).dist;
+  const dLeft = distanceToSegment(f, l, wallBackF, wallCenterL, wallFrontInner, wallCenterL).dist;
+  const dRight = distanceToSegment(f, l, wallBackF, -wallCenterL, wallFrontInner, -wallCenterL).dist;
+  const dSeg = Math.min(dFront, dLeft, dRight);
+  const bermProfile = 1 - smoothstep(0.3, 1.4, dSeg);
+  const ripple = 1 + 0.06 * (valueNoise(x * 0.6, z * 0.6) - 0.5);
+  return {
+    floorW,
+    floorY: baseFn(gun.gx, gun.gz) - 0.25,
+    berm: bermCfg.height * bermProfile * ripple
+  };
+}
 
-function getBermHeight(x, z) {
-  let best = 0;
-  const reach = BERM.halfWidth + BERM.profile + 0.5;
-  for (const { gun, segments } of BERM_SEGMENTS) {
-    const u = x - gun.rear[0];
-    const v = z - gun.rear[1];
-    if (Math.abs(u) > reach || v > BERM.back + BERM.profile + 0.5 || v < BERM.front - BERM.profile) continue;
-    let dist = Infinity;
-    for (const [ax, az, bx, bz] of segments) dist = Math.min(dist, distanceToSegment(x, z, ax, az, bx, bz).dist);
-    const taper = smoothstep(BERM.front - 1, BERM.front + 6, v);
-    const ripple = 0.88 + 0.24 * valueNoise(x * 0.6, z * 0.6);
-    best = Math.max(best, BERM.height * bell(dist / BERM.profile) * taper * ripple);
+function getBermDelta(x, z, gunsList) {
+  let maxBerm = 0;
+  const baseFn = (px, pz) => baseHeightForMap(activeMapId, px, pz);
+  for (const gun of gunsList) {
+    const p = evalGunPit(x, z, gun, baseFn);
+    if (p.berm > maxBerm) maxBerm = p.berm;
   }
-  return best;
+  return maxBerm;
+}
+
+export function setActiveTerrainMap(mapId, guns = [], mapGroup = null) {
+  activeMapId = MAP_BIOMES[mapId] ? mapId : 'shivta';
+  activeMapGroup = mapGroup;
+  const rawGuns = Array.isArray(guns) && guns.length ? guns : (layout.MAP_DEFS?.[activeMapId]?.guns || []);
+  activeGuns = mapGunList(rawGuns);
 }
 
 export function getTerrainHeight(x, z) {
-  return getBaseHeight(x, z) + getBermHeight(x, z);
+  const baseFn = (px, pz) => baseHeightForMap(activeMapId, px, pz);
+  let h = baseFn(x, z);
+  let bestFloorW = 0;
+  let bestFloorY = h;
+  let maxBerm = 0;
+  for (const gun of getEffectiveGuns()) {
+    const p = evalGunPit(x, z, gun, baseFn);
+    if (p.floorW > bestFloorW) {
+      bestFloorW = p.floorW;
+      bestFloorY = p.floorY;
+    }
+    if (p.berm > maxBerm) maxBerm = p.berm;
+  }
+  return h + (bestFloorY - h) * bestFloorW + maxBerm;
 }
 
 function surfaceNormal(heightFn, x, z, target) {
@@ -168,97 +213,127 @@ function surfaceNormal(heightFn, x, z, target) {
   return target.set(-hx, 2 * NORMAL_EPS, -hz).normalize();
 }
 
-function buildGrid(minX, minZ, sizeX, sizeZ, step, heightFn, keepTriangle) {
+function buildPlaneTile(minX, minZ, sizeX, sizeZ, step, heightFn) {
   const cols = Math.ceil(sizeX / step);
   const rows = Math.ceil(sizeZ / step);
-  const positions = new Float32Array((cols + 1) * (rows + 1) * 3);
-  const normals = new Float32Array(positions.length);
-  const normal = new THREE.Vector3();
-  for (let r = 0; r <= rows; r++) {
-    for (let c = 0; c <= cols; c++) {
-      const i = (r * (cols + 1) + c) * 3;
-      const x = minX + (c / cols) * sizeX;
-      const z = minZ + (r / rows) * sizeZ;
-      positions[i] = x;
-      positions[i + 1] = heightFn(x, z);
-      positions[i + 2] = z;
-      surfaceNormal(heightFn, x, z, normal);
-      normals[i] = normal.x;
-      normals[i + 1] = normal.y;
-      normals[i + 2] = normal.z;
-    }
+  const geo = new THREE.PlaneGeometry(sizeX, sizeZ, cols, rows);
+  geo.rotateX(-Math.PI / 2);
+  const cx = minX + sizeX * 0.5;
+  const cz = minZ + sizeZ * 0.5;
+  const pos = geo.attributes.position;
+  const norm = geo.attributes.normal;
+  const colors = new Float32Array(pos.count * 3);
+  const n = new THREE.Vector3();
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i) + cx;
+    const z = pos.getZ(i) + cz;
+    const y = heightFn(x, z);
+    pos.setXYZ(i, x, y, z);
+    surfaceNormal(heightFn, x, z, n);
+    norm.setXYZ(i, n.x, n.y, n.z);
+    const shade = 0.92 + 0.08 * Math.min(1, Math.max(0, n.y));
+    colors[i * 3] = shade;
+    colors[i * 3 + 1] = shade;
+    colors[i * 3 + 2] = shade;
   }
-  const indices = [];
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      const a = r * (cols + 1) + c;
-      const b = a + 1;
-      const d = a + cols + 1;
-      const e = d + 1;
-      if (!keepTriangle || keepTriangle(positions, a, b, d, e)) indices.push(a, d, b, b, d, e);
-    }
-  }
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
-  geometry.setAttribute('uv', new THREE.BufferAttribute(new Float32Array((positions.length / 3) * 2), 2));
-  geometry.setIndex(indices);
-  geometry.computeBoundingSphere();
-  geometry.computeBoundingBox();
-  return geometry;
+  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  geo.computeBoundingSphere();
+  geo.computeBoundingBox();
+  return geo;
 }
 
-export function createTerrainTiles(material) {
+function tileHasGun(minX, maxX, minZ, maxZ) {
+  for (const g of getEffectiveGuns()) {
+    if (g.gx >= minX - 14 && g.gx <= maxX + 14 && g.gz >= minZ - 14 && g.gz <= maxZ + 14) return true;
+  }
+  return false;
+}
+
+export function createTerrainTiles(material, mapId = activeMapId, mapGroup = activeMapGroup) {
+  const biome = MAP_BIOMES[mapId] || MAP_BIOMES.shivta;
+  const [minX, maxX, minZ, maxZ] = biome.bounds;
+  const tileSize = biome.tileSize || 140;
   const tiles = [];
-  for (let minX = TERRAIN_EXTENT.minX; minX < TERRAIN_EXTENT.maxX; minX += TILE_SIZE_X) {
-    for (let minZ = TERRAIN_EXTENT.minZ; minZ < TERRAIN_EXTENT.maxZ; minZ += TILE_SIZE_Z) {
-      const sizeX = Math.min(TILE_SIZE_X, TERRAIN_EXTENT.maxX - minX);
-      const sizeZ = Math.min(TILE_SIZE_Z, TERRAIN_EXTENT.maxZ - minZ);
-      const mesh = new THREE.Mesh(buildGrid(minX, minZ, sizeX, sizeZ, GRID_STEP, getBaseHeight), material);
+  for (let x0 = minX; x0 < maxX; x0 += tileSize) {
+    for (let z0 = minZ; z0 < maxZ; z0 += tileSize) {
+      const sizeX = Math.min(tileSize, maxX - x0);
+      const sizeZ = Math.min(tileSize, maxZ - z0);
+      const step = tileHasGun(x0, x0 + sizeX, z0, z0 + sizeZ) ? 1.5 : 3.2;
+      const mesh = new THREE.Mesh(buildPlaneTile(x0, z0, sizeX, sizeZ, step, getTerrainHeight), material);
       mesh.name = 'terrain-tile';
       mesh.receiveShadow = true;
-      mesh.userData.tileRect = [minX, minX + sizeX, minZ, minZ + sizeZ];
+      mesh.userData.terrain = true;
+      mesh.userData.tileRect = [x0, x0 + sizeX, z0, z0 + sizeZ];
+      if (mapGroup) mapGroup.add(mesh);
       tiles.push(mesh);
     }
   }
   return tiles;
 }
 
-export function createBermMesh(material) {
-  const geometries = GUNS.map((gun) => {
-    const reach = BERM.halfWidth + BERM.profile;
-    const minX = gun.rear[0] - reach;
-    const minZ = gun.rear[1] + BERM.front - BERM.profile;
-    const sizeZ = BERM.back - BERM.front + BERM.profile * 2;
-    const heightFn = (x, z) => {
-      const berm = getBermHeight(x, z);
-      return getBaseHeight(x, z) + (berm < 0.04 ? -0.08 : berm);
-    };
-    const keep = (positions, ...corners) => corners.some((index) => getBermHeight(positions[index * 3], positions[index * 3 + 2]) > 0.04);
-    return buildGrid(minX, minZ, reach * 2, sizeZ, BERM_STEP, heightFn, keep);
-  });
-  const merged = new THREE.Mesh(mergeIndexed(geometries), material);
-  merged.name = 'gun-berms';
-  merged.receiveShadow = true;
-  return merged;
-}
-
-function mergeIndexed(geometries) {
+export function createGunPitBerms(material, guns = []) {
+  const list = guns.length ? mapGunList(guns) : getEffectiveGuns();
+  if (!list.length) {
+    const empty = new THREE.Mesh(new THREE.BufferGeometry(), material);
+    empty.name = 'gun-berms';
+    empty.visible = false;
+    return empty;
+  }
   const positions = [];
   const normals = [];
+  const colors = [];
+  const uvs = [];
   const indices = [];
   let offset = 0;
-  for (const geometry of geometries) {
-    positions.push(...geometry.attributes.position.array);
-    normals.push(...geometry.attributes.normal.array);
-    for (const index of geometry.index.array) indices.push(index + offset);
-    offset += geometry.attributes.position.count;
+  const n = new THREE.Vector3();
+  const reach = 13.0;
+  const cols = Math.ceil((reach * 2) / BERM_STEP);
+  for (const gun of list) {
+    const x0 = gun.gx - reach;
+    const z0 = gun.gz - reach;
+    const baseFn = (px, pz) => baseHeightForMap(activeMapId, px, pz);
+    const hAt = (x, z) => {
+      const p = evalGunPit(x, z, gun, baseFn);
+      return getTerrainHeight(x, z) + (p.berm < 0.04 ? -0.06 : 0.01);
+    };
+    const gridPos = [];
+    for (let r = 0; r <= cols; r++) {
+      for (let c = 0; c <= cols; c++) {
+        const x = x0 + c * BERM_STEP;
+        const z = z0 + r * BERM_STEP;
+        const y = hAt(x, z);
+        gridPos.push(x, y, z);
+        positions.push(x, y, z);
+        surfaceNormal(hAt, x, z, n);
+        normals.push(n.x, n.y, n.z);
+        colors.push(0.98, 0.98, 0.98);
+        uvs.push(c / cols, r / cols);
+      }
+    }
+    for (let r = 0; r < cols; r++) {
+      for (let c = 0; c < cols; c++) {
+        const a = r * (cols + 1) + c;
+        const b = a + 1;
+        const d = a + cols + 1;
+        const e = d + 1;
+        const keep = [a, b, d, e].some((idx) => getBermDelta(gridPos[idx * 3], gridPos[idx * 3 + 2], list) > 0.04);
+        if (keep) indices.push(offset + a, offset + d, offset + b, offset + b, offset + d, offset + e);
+      }
+    }
+    offset += (cols + 1) * (cols + 1);
   }
-  const merged = new THREE.BufferGeometry();
-  merged.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  merged.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
-  merged.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(offset * 2), 2));
-  merged.setIndex(indices);
-  merged.computeBoundingSphere();
-  return merged;
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geo.setIndex(indices);
+  geo.computeBoundingSphere();
+  const mesh = new THREE.Mesh(geo, material);
+  mesh.name = 'gun-berms';
+  mesh.userData.terrain = true;
+  mesh.receiveShadow = true;
+  return mesh;
 }
+
+export { createGunPitBerms as createBermMesh };

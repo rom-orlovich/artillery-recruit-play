@@ -1,11 +1,6 @@
 import * as THREE from 'three';
-import { fbm } from './world-terrain.js';
 import { SKY_VERTEX, SKY_FRAGMENT } from './world-sky-presets.js';
 
-const RIDGES = [
-  { radius: 640, base: 22, amp: 34, seed: 3, segments: 160 },
-  { radius: 1020, base: 46, amp: 60, seed: 11, segments: 160 }
-];
 const COLOR_KEYS = [
   'zenith',
   'horizon',
@@ -28,38 +23,8 @@ const ENV_REFRESH_HOURS = 0.5;
 const ENV_COLOR_THRESHOLD = 0.03;
 const ENV_CACHE_LIMIT = 2;
 
-function ridgeGeometry({ radius, base, amp, seed, segments }) {
-  const positions = [];
-  const indices = [];
-  for (let i = 0; i <= segments; i++) {
-    const a = (i / segments) * Math.PI * 2;
-    const n = fbm(Math.cos(a) * 3 + seed, Math.sin(a) * 3 - seed, 4);
-    const peak = base + Math.pow(n, 1.6) * amp * 1.6;
-    positions.push(Math.cos(a) * radius, -60, Math.sin(a) * radius, Math.cos(a) * radius, peak, Math.sin(a) * radius);
-    if (i < segments) {
-      const k = i * 2;
-      indices.push(k, k + 1, k + 2, k + 1, k + 3, k + 2);
-    }
-  }
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  geometry.setIndex(indices);
-  return geometry;
-}
-
 function colorDiffSum(a, b) {
   return Math.abs(a.r - b.r) + Math.abs(a.g - b.g) + Math.abs(a.b - b.b);
-}
-
-export function createHorizonRidges(scene) {
-  return RIDGES.map((def, i) => {
-    const mesh = new THREE.Mesh(ridgeGeometry(def), new THREE.MeshBasicMaterial({ color: 0x333333, fog: false, side: THREE.DoubleSide }));
-    mesh.name = `horizon-ridge-${i}`;
-    mesh.frustumCulled = false;
-    mesh.renderOrder = -1;
-    scene.add(mesh);
-    return mesh;
-  });
 }
 
 export function createEnvManager(scene, renderer) {
@@ -182,7 +147,7 @@ export function createHeadlampController() {
 
 function sampleSunDir(h, out) {
   if (h >= 6 && h <= 18.5) {
-    const u = h <= 12.5 ? 0.5 * (h - 6) / 6.5 : 0.5 + 0.5 * (h - 12.5) / 6;
+    const u = h <= 12.5 ? (0.5 * (h - 6)) / 6.5 : 0.5 + (0.5 * (h - 12.5)) / 6;
     const theta = u * Math.PI;
     const y = Math.max(0.02, Math.sin(theta) * SIN_MAX_ELEV);
     return out.set(Math.cos(theta), y, Math.sin(theta) * COS_MAX_ELEV).normalize();
@@ -255,7 +220,7 @@ export function createPresetBlender(regionOrder, atmospheres, keyframes) {
       regionColor.setRGB(0, 0, 0);
       for (let i = 0; i < parsedRegions.length; i++) {
         const r = parsedRegions[i];
-        const w = weights ? (weights[r.id] ?? 0) : (i === 0 ? 1 : 0);
+        const w = weights ? (weights[r.id] ?? 0) : i === 0 ? 1 : 0;
         if (w > 0) regionColor.add(tmpColor.copy(r.colors[key]).multiplyScalar(w));
       }
       mixed[key].copy(hourColors[key]).multiply(regionColor);
@@ -269,7 +234,7 @@ export function createPresetBlender(regionOrder, atmospheres, keyframes) {
     let raysBase = 0;
     for (let i = 0; i < parsedRegions.length; i++) {
       const r = parsedRegions[i];
-      const w = weights ? (weights[r.id] ?? 0) : (i === 0 ? 1 : 0);
+      const w = weights ? (weights[r.id] ?? 0) : i === 0 ? 1 : 0;
       sunScale += r.sunScale * w;
       hemiBase += r.hemiIntensity * w;
       fogBase += r.fogDensity * w;

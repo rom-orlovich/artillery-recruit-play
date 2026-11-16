@@ -14,6 +14,7 @@ const COMPASS_DIRS = ['צפון', 'צפון-מזרח', 'מזרח', 'דרום-מ�
 let returnState = 'play';
 let initialized = false;
 let offerHeldPlay = false;
+let previousFocus = null;
 
 function stripKeyHints(text) {
   return String(text || '').replace(/\s*\[[^\]]+\]/g, '').trim();
@@ -184,8 +185,8 @@ export function switchHelpTab(tabKey = 'guide') {
 export function openHelpPanel(tabKey = 'guide') {
   const panel = document.getElementById('help-panel');
   if (!panel) return;
-  hideGuideOffer();
   if (!isHelpOpen()) {
+    previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const pauseModal = document.getElementById('pause-modal');
     const pauseWasOpen = Boolean(pauseModal && !pauseModal.classList.contains('hidden'));
     returnState = pauseWasOpen ? 'pause' : 'play';
@@ -199,10 +200,15 @@ export function openHelpPanel(tabKey = 'guide') {
       releaseGameLock();
     }
   }
+  hideGuideOffer();
   renderHelpContent();
   switchHelpTab(tabKey);
   panel.classList.remove('hidden');
   panel.style.display = 'flex';
+  const activeTab = panel.querySelector('[role="tab"][aria-selected="true"]') || panel.querySelector('[data-help-tab]');
+  if (activeTab && typeof activeTab.focus === 'function') {
+    activeTab.focus({ preventScroll: true });
+  }
 }
 
 export function closeHelpPanel() {
@@ -217,6 +223,17 @@ export function closeHelpPanel() {
     runtime.isPlaying = false;
   } else {
     closeAllModals();
+  }
+  const target = previousFocus && previousFocus.isConnected && !panel.contains(previousFocus)
+    ? previousFocus
+    : document.body;
+  previousFocus = null;
+  if (target === document.body) {
+    if (document.activeElement && document.activeElement !== document.body && typeof document.activeElement.blur === 'function') {
+      document.activeElement.blur();
+    }
+  } else if (target && typeof target.focus === 'function') {
+    target.focus({ preventScroll: true });
   }
 }
 

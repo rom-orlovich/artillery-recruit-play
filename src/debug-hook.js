@@ -6,6 +6,11 @@ import { getInput } from './controls.js';
 import { savePlayerPosition, openModalByName, closeAllModals } from './modal-manager.js';
 import { getCurrentTarget, getMapMarkers } from './current-target.js';
 import { getTerrainHeight } from './world-terrain.js';
+import { MAP_DEFS } from './world-layout.js';
+import { mountMapSync, getCurrentMapId } from './world.js';
+
+const LEGACY_MAP_IDS = ['shivta', 'yoav', 'line'];
+const insideMap = (id, x, z) => { const [minX, maxX, minZ, maxZ] = MAP_DEFS[id].bounds; return x >= minX && x <= maxX && z >= minZ && z <= maxZ; };
 
 function getFallbackObjectiveState() {
   const missionId = save.activeMissionId || 'base';
@@ -75,13 +80,25 @@ export function installDebugHook(ctx) {
       return validRoleId;
     },
     teleport(x, z, yaw = 0, pitch = 0) {
+      const currentId = getCurrentMapId();
+      if (LEGACY_MAP_IDS.includes(currentId) || !insideMap(currentId, x, z)) {
+        const spawnDistance = (id) => Math.hypot(MAP_DEFS[id].spawn.x - x, MAP_DEFS[id].spawn.z - z);
+        const [target] = LEGACY_MAP_IDS.filter((id) => insideMap(id, x, z)).sort((a, b) => spawnDistance(a) - spawnDistance(b));
+        if (target && target !== currentId) mountMapSync(target, { x, z, yaw });
+      }
+      const y = getTerrainHeight(x, z);
       player.pos.x = x;
+      player.pos.y = y;
       player.pos.z = z;
+      if (typeof player.vel?.set === 'function') player.vel.set(0, 0, 0);
+      player.velY = 0;
+      player.onGround = true;
       player.yaw = yaw;
       player.pitch = pitch;
       camera.position.set(player.pos.x, player.pos.y + player.eyeHeight, player.pos.z);
       camera.rotation.y = player.yaw;
       camera.rotation.x = player.pitch;
+      camera.updateMatrixWorld?.(true);
     },
     interact() {
       return onInteract();

@@ -78,6 +78,19 @@ export const ENEMY_TYPES = Object.freeze({
     marksPlayer: true,
     speed: 3.8,
     hp: 2
+  },
+  infiltrator: {
+    id: 'infiltrator',
+    nameHe: 'מסתנן',
+    pluralHe: 'מסתננים',
+    severity: 'red',
+    color: '#ff3b3b',
+    hex: 0xff2f2f,
+    dealsDamage: false,
+    damage: 12,
+    marksPlayer: false,
+    speed: 4.4,
+    hp: 2
   }
 });
 

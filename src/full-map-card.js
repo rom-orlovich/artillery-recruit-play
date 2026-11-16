@@ -1,4 +1,5 @@
 import { player } from './state.js';
+import { hasRemainingMissions } from './current-target.js';
 
 export const MODAL_ID = 'full-map-modal';
 
@@ -59,13 +60,14 @@ export function syncToggleButton(zoomMode) {
 }
 
 export function updateMissionCard(info) {
+  const active = hasRemainingMissions();
   const titleEl = document.getElementById('full-map-mission-title');
   const objEl = document.getElementById('full-map-objective-text');
   const distEl = document.getElementById('full-map-objective-dist');
-  if (titleEl) titleEl.textContent = info.missionTitle;
-  if (objEl) objEl.textContent = info.objectiveText;
+  if (titleEl) titleEl.textContent = active ? info.missionTitle : 'אין משימה פעילה';
+  if (objEl) objEl.textContent = active ? info.objectiveText : 'אין משימה פעילה';
   if (distEl) {
-    distEl.textContent = info.target
+    distEl.textContent = active && info.target
       ? `${Math.max(0, Math.round(Math.hypot(info.target.x - player.pos.x, info.target.z - player.pos.z)))}m`
       : '';
   }

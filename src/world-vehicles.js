@@ -3,6 +3,7 @@ import { createSeededRandom } from './props/materials.js';
 import { composeMatrix, createBake, ground } from './world-kit.js';
 import { registerSoldier } from './world-soldiers.js';
 import { collectPivotGeometry, doherMaterial, loadDoherTemplate } from './world-doher.js';
+export { GUN_BODY_OFFSET } from './world-layout.js';
 
 const DOHER_LOD_DISTANCE = 55;
 const TRACK_COLOR = 0x2a2a27;

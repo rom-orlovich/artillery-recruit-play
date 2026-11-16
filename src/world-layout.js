@@ -1,40 +1,57 @@
 export const TERRAIN_EXTENT = { minX: -300, maxX: 300, minZ: -520, maxZ: 160 };
 
-export const REGIONS = {
+export const MAP_DEFS = {
   shivta: {
-    id: 'shivta',
-    name: 'מחנה שבטה — ביסל"ת',
-    short: 'שבטה',
-    rect: [-210, 210, -128, 100],
-    travel: { x: 0, z: 24, yaw: 0 },
-    mapColor: '#d3bc8f'
+    id: 'shivta', nameHe: 'מחנה שבטה', titleHe: 'מחנה שבטה — ביסל"ת', subHe: 'בית הספר לתותחנות שדה',
+    bounds: [-210, 210, -132, 105], spawn: { x: 0, z: 18, yaw: 0 }, guns: [], batteryCenter: { x: 24, z: 22 }, mapColor: '#d3bc8f',
+    landmarks: [{ x: 0, z: 18, text: 'רחבת המסדרים' }, { x: 24, z: 22, text: 'פארק תומ"תים' }, { x: 68, z: 0, text: 'מטווח שבטה' }, { x: 0, z: -38, text: 'ש"ג צפוני' }]
   },
   yoav: {
-    id: 'yoav',
-    name: 'מחנה יואב — כביש 978',
-    short: 'מחנה יואב',
-    rect: [-178, -48, -222, -128],
-    travel: { x: -70, z: -178, yaw: Math.PI / 2 },
-    mapColor: '#6c6656'
+    id: 'yoav', nameHe: 'מחנה יואב', titleHe: 'מחנה יואב — כביש 978', subHe: 'מחנה כינוס והיערכות ברמת הגולן',
+    bounds: [-190, -35, -230, -125], spawn: { x: -70, z: -178, yaw: Math.PI / 2 }, guns: [], batteryCenter: { x: -115, z: -178 }, mapColor: '#6c6656',
+    landmarks: [{ x: -58, z: -176, text: 'ש"ג 978' }, { x: -95, z: -176, text: 'רחבת היערכות' }, { x: -146, z: -198, text: 'ימ"ח' }, { x: -76, z: -158, text: 'גן אלון' }]
   },
   line: {
-    id: 'line',
-    name: 'קו הסוללה — רמת הגולן',
-    short: 'קו הסוללה',
-    rect: [-210, 210, -450, -128],
-    travel: { x: -57, z: -244, yaw: -0.55 },
-    mapColor: '#8f7f52'
+    id: 'line', nameHe: 'קו סוללה — הר קרן', titleHe: 'קו הסוללה — הר קרן', subHe: 'עמדות ירי ומוצב צוקית',
+    bounds: [-210, 210, -450, -195], spawn: { x: -57, z: -244, yaw: -0.55 }, batteryCenter: { x: 58, z: -300 }, mapColor: '#8f7f52',
+    guns: [
+      { id: 'A1', x: -44, z: -296, yaw: 0 }, { id: 'A2', x: -6, z: -290, yaw: 0 }, { id: 'A3', x: 32, z: -298, yaw: 0 },
+      { id: 'B1', x: 84, z: -304, yaw: 0 }, { id: 'B2', x: 122, z: -310, yaw: 0 }, { id: 'B3', x: 160, z: -302, yaw: 0 }
+    ],
+    landmarks: [{ x: 4, z: -230, text: 'מאהל הסוללה' }, { x: 58, z: -282, text: 'עמדות סוללה' }, { x: 0, z: -392, text: 'מוצב צוקית' }, { x: -100, z: -330, text: 'רכס רוכ"ש' }]
+  },
+  zaura: {
+    id: 'zaura', nameHe: 'זעורה (רמת הגולן)', titleHe: 'גזרת זעורה — רמת הגולן', subHe: 'רמה בזלתית צופה לחרמון',
+    bounds: [-140, 140, -140, 140], spawn: { x: 0, z: 38, yaw: 0 }, batteryCenter: { x: 0, z: -12 }, mapColor: '#9e8e5c',
+    guns: [{ id: 'Z1', x: -36, z: -12, yaw: 0 }, { id: 'Z2', x: -12, z: -8, yaw: 0 }, { id: 'Z3', x: 12, z: -14, yaw: 0 }, { id: 'Z4', x: 36, z: -10, yaw: 0 }],
+    landmarks: [{ x: 0, z: -12, text: 'סוללת זעורה' }, { x: 6, z: 26, text: 'אוהל מועדון' }, { x: -48, z: 38, text: 'שלט זעורה' }, { x: 68, z: 46, text: 'ש"ג זעורה' }]
+  },
+  beit_hillel: {
+    id: 'beit_hillel', nameHe: 'בית הלל (עמק החולה)', titleHe: 'גזרת בית הלל — עמק החולה', subHe: 'מחפורות חרסית ומטעי פקאן',
+    bounds: [-140, 140, -140, 140], spawn: { x: 0, z: 42, yaw: 0 }, batteryCenter: { x: 0, z: -10 }, mapColor: '#7a6842',
+    guns: [{ id: 'BH1', x: -39, z: -10, yaw: 0 }, { id: 'BH2', x: -13, z: -10, yaw: 0 }, { id: 'BH3', x: 13, z: -10, yaw: 0 }, { id: 'BH4', x: 39, z: -10, yaw: 0 }],
+    landmarks: [{ x: 0, z: -10, text: 'סוללת בית הלל' }, { x: 24, z: 22, text: 'סככת אוכל' }, { x: -14, z: 22, text: 'חמ"ל מכולות' }, { x: -50, z: 62, text: 'ש"ג בית הלל' }]
+  },
+  kadita: {
+    id: 'kadita', nameHe: 'כדיתא (גליל עליון)', titleHe: 'גזרת כדיתא — הגליל העליון', subHe: 'אדמת טרה רוסה ותעלות קשר',
+    bounds: [-140, 140, -140, 140], spawn: { x: 0, z: 40, yaw: 0 }, batteryCenter: { x: 0, z: -8 }, mapColor: '#8a3f22',
+    guns: [{ id: 'K1', x: -34, z: 4, yaw: -0.15 }, { id: 'K2', x: -11, z: -4, yaw: -0.1 }, { id: 'K3', x: 14, z: -11, yaw: 0.05 }, { id: 'K4', x: 38, z: -18, yaw: 0.1 }],
+    landmarks: [{ x: 0, z: -8, text: 'סוללת כדיתא' }, { x: 14, z: 18, text: 'אוהל מועדון' }, { x: -26, z: 34, text: 'שלט כדיתא' }, { x: -12, z: -52, text: 'רכס האלון' }]
   }
 };
+
+export const REGIONS = {
+  shivta: { id: 'shivta', name: MAP_DEFS.shivta.titleHe, short: 'שבטה', rect: [-210, 210, -128, 100], travel: { x: 0, z: 24, yaw: 0 }, mapColor: '#d3bc8f' },
+  yoav: { id: 'yoav', name: MAP_DEFS.yoav.titleHe, short: 'מחנה יואב', rect: [-178, -48, -222, -128], travel: { x: -70, z: -178, yaw: Math.PI / 2 }, mapColor: '#6c6656' },
+  line: { id: 'line', name: MAP_DEFS.line.titleHe, short: 'קו הסוללה', rect: [-210, 210, -450, -128], travel: { x: -57, z: -244, yaw: -0.55 }, mapColor: '#8f7f52' }
+};
+
+export const TRAVEL_SPOTS = Object.values(MAP_DEFS).map((m) => ({ id: m.id, mapId: m.id, name: m.nameHe, short: m.nameHe, ...m.spawn }));
 
 export const DESERT_EDGE_Z = { start: -108, end: -142 };
 
 export const ROADS = [
-  {
-    kind: 'asphalt',
-    width: 5,
-    points: [[0, -30], [0, -70], [0, -104], [-4, -122], [-14, -140], [-28, -156], [-40, -170], [-46, -184], [-48, -202], [-52, -220], [-60, -238], [-78, -258], [-102, -288], [-118, -325], [-120, -370], [-110, -415], [-98, -470]]
-  },
+  { kind: 'asphalt', width: 5, points: [[0, -30], [0, -70], [0, -104], [-4, -122], [-14, -140], [-28, -156], [-40, -170], [-46, -184], [-48, -202], [-52, -220], [-60, -238], [-78, -258], [-102, -288], [-118, -325], [-120, -370], [-110, -415], [-98, -470]] },
   { kind: 'asphalt', width: 6, points: [[0, 30], [0, 120]] },
   { kind: 'asphalt', width: 5, points: [[-46, -178], [-60, -178]] },
   { kind: 'dirt', width: 3.4, points: [[35, 0], [46, 0]] },
@@ -59,8 +76,7 @@ export const GUNS = [
 ];
 
 export const GUN_BODY_OFFSET = -4.4;
-
-export const BERM = { halfWidth: 7.5, back: 3.8, front: -11, gapFrom: 2, height: 2.1, profile: 3.2 };
+export const BERM = { halfWidth: 7.5, back: 3.8, front: -7.4, gapFrom: 2, height: 2.3, profile: 3.2 };
 
 export const FOOTPRINTS = [
   { id: 'shivtaBarracksA', region: 'shivta', kind: 'building', x: -23, z: 12, w: 8, d: 10, h: 6.6, label: "מגורים א'" },
@@ -124,52 +140,26 @@ export const TREES = [
 ];
 
 export const FEATURES = {
-  ridges: [
-    { from: [-82, -273], to: [-34, -276], height: 3.2, halfWidth: 7 }
-  ],
-  plateaus: [
-    { x: -100, z: -330, radius: 9, falloff: 16, height: 1.0 }
-  ],
+  ridges: [{ from: [-82, -273], to: [-34, -276], height: 3.2, halfWidth: 7 }],
+  plateaus: [{ x: -100, z: -330, radius: 9, falloff: 16, height: 1.0 }],
   hills: [
-    { x: -58, z: -66, radius: 13, height: 4 },
-    { x: -150, z: -372, radius: 42, height: 13 },
-    { x: 150, z: -388, radius: 48, height: 11 },
-    { x: 124, z: -206, radius: 30, height: 6 },
-    { x: -190, z: -250, radius: 36, height: 9 },
-    { x: 120, z: 70, radius: 40, height: 7 },
-    { x: -140, z: 40, radius: 45, height: 9 }
+    { x: -58, z: -66, radius: 13, height: 4 }, { x: -150, z: -372, radius: 42, height: 13 }, { x: 150, z: -388, radius: 48, height: 11 },
+    { x: 124, z: -206, radius: 30, height: 6 }, { x: -190, z: -250, radius: 36, height: 9 }, { x: 120, z: 70, radius: 40, height: 7 }, { x: -140, z: 40, radius: 45, height: 9 }
   ],
-  wadis: [
-    { points: [[60, -40], [88, -78], [140, -108], [215, -118]], depth: 1.8, halfWidth: 7 }
-  ]
+  wadis: [{ points: [[60, -40], [88, -78], [140, -108], [215, -118]], depth: 1.8, halfWidth: 7 }]
 };
 
 export const FLAT_ZONES = [
-  { rect: [-48, 48, -48, 48], feather: 16 },
-  { rect: [40, 100, -26, 26], feather: 10 },
-  { rect: [-70, 60, -122, -44], feather: 24, keep: 0.25 },
-  { rect: [-172, -52, -216, -142], feather: 12 },
-  { rect: [-44, 52, -262, -216], feather: 12 },
-  { rect: [-44, 44, -422, -364], feather: 12 },
-  { circle: [-56, -262, 11], feather: 7 },
-  { circle: [-22, -276, 9], feather: 7 },
-  { circle: [58, -288, 13], feather: 8 },
-  { circle: [58, -334, 18], feather: 8 },
-  { circle: [44, -268, 6], feather: 6 },
-  { circle: [-54, -236, 7], feather: 7 },
-  { circle: [-40, -386, 8], feather: 6 },
-  { circle: [-60, -100, 8], feather: 6 },
+  { rect: [-48, 48, -48, 48], feather: 16 }, { rect: [40, 100, -26, 26], feather: 10 }, { rect: [-70, 60, -122, -44], feather: 24, keep: 0.25 },
+  { rect: [-172, -52, -216, -142], feather: 12 }, { rect: [-44, 52, -262, -216], feather: 12 }, { rect: [-44, 44, -422, -364], feather: 12 },
+  { circle: [-56, -262, 11], feather: 7 }, { circle: [-22, -276, 9], feather: 7 }, { circle: [58, -288, 13], feather: 8 },
+  { circle: [58, -334, 18], feather: 8 }, { circle: [44, -268, 6], feather: 6 }, { circle: [-54, -236, 7], feather: 7 },
+  { circle: [-40, -386, 8], feather: 6 }, { circle: [-60, -100, 8], feather: 6 },
   ...GUNS.map((gun) => ({ circle: [gun.rear[0], gun.rear[1] - 3, 17], feather: 10 }))
 ];
 
 export const MAP_LABELS = [
-  { x: 0, z: -38, text: 'ש"ג צפוני' },
-  { x: -40, z: -62, text: 'רכס התצפית' },
-  { x: 2, z: -70, text: 'שטח אימונים' },
-  { x: -58, z: -176, text: 'ש"ג 978' },
-  { x: -52, z: -232, text: 'שלט הסוללה' },
-  { x: 4, z: -230, text: 'מאהל הסוללה' },
-  { x: 0, z: -392, text: 'מוצב צוקית' },
-  { x: -100, z: -330, text: 'רכס רוכ"ש' },
-  { x: 58, z: -282, text: 'רועם' }
+  { x: 0, z: -38, text: 'ש"ג צפוני' }, { x: -40, z: -62, text: 'רכס התצפית' }, { x: 2, z: -70, text: 'שטח אימונים' },
+  { x: -58, z: -176, text: 'ש"ג 978' }, { x: -52, z: -232, text: 'שלט הסוללה' }, { x: 4, z: -230, text: 'מאהל הסוללה' },
+  { x: 0, z: -392, text: 'מוצב צוקית' }, { x: -100, z: -330, text: 'רכס רוכ"ש' }, { x: 58, z: -282, text: 'רועם' }
 ];

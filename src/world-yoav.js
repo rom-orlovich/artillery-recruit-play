@@ -96,7 +96,7 @@ function addParadeAndStaging(bake) {
   for (const [x, z, ry] of [[-100, -178, 0], [-98, -178, 0], [-96, -178, 0], [-94.5, -175, 2.6], [-90, -194, 0.4], [-118, -184, 1.2]]) addSoldier(bake, x, ground(x, z), z, ry);
 }
 
-function addScatter(group) {
+function addScatter(mapGroup) {
   const random = createSeededRandom(978);
   const boulders = [];
   const boulderColors = [];
@@ -121,13 +121,11 @@ function addScatter(group) {
     tufts.push(composeMatrix(x, ground(x, z), z, 0, random() * 6, 0, s, s * 0.9, s));
     tuftColors.push(new THREE.Color(random() > 0.4 ? 0x9c8a55 : 0x7d7a45).multiplyScalar(0.75 + random() * 0.35));
   }
-  group.add(createInstanced(new THREE.DodecahedronGeometry(0.6, 0), 'rock', boulders, boulderColors));
-  group.add(createInstancedChunks(createTuftGeometry(), 'grassTuft', tufts, tuftColors, 100, 65));
+  mapGroup.add(createInstanced(new THREE.DodecahedronGeometry(0.6, 0), 'rock', boulders, boulderColors));
+  mapGroup.add(createInstancedChunks(createTuftGeometry(), 'grassTuft', tufts, tuftColors, 100, 65));
 }
 
-export function buildYoav(scene) {
-  const group = new THREE.Group();
-  group.name = 'region-yoav';
+export function buildYoav(mapGroup) {
   const bake = createBake();
   for (const fp of FOOTPRINTS.filter((f) => f.region === REGION && f.kind === 'building')) {
     if (fp.id === 'yoavHangar') addHangar(bake, fp);
@@ -141,8 +139,7 @@ export function buildYoav(scene) {
     addTree(bake, x, ground(x, z), z, kind, i + 41);
     addCollider(REGION, x, z, 0.6, 0.6, 3);
   });
-  group.add(bake.build('yoav-static'));
-  addScatter(group);
-  scene.add(group);
-  return group;
+  mapGroup.add(bake.build('yoav-static'));
+  addScatter(mapGroup);
+  return mapGroup;
 }

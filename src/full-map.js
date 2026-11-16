@@ -1,6 +1,7 @@
 import { REGIONS } from './world-layout.js';
+import { MAPS, loadMap, getCurrentMapId } from './maps/map-registry.js';
 import {
-  MAP_EXTENT,
+  getMapBounds,
   getMapImage,
   mapToImage,
   getMapLabels,
@@ -12,10 +13,9 @@ import {
   isEntityActive,
   drawDroneDot
 } from './map-image.js';
-import { getMapMarkers } from './current-target.js';
+import { getMapMarkers, hasRemainingMissions } from './current-target.js';
 import { getDrones } from './entities.js';
 import { player, runtime } from './state.js';
-import { travelTo, getRegionAt } from './world.js';
 import { resetInputState, releaseGameLock } from './controls.js';
 import { closeAllModals, setModalVisible } from './modal-manager.js';
 import { resetRouteCache, getRouteForObjective, computeFitRect, drawRoute } from './full-map-route.js';
@@ -25,6 +25,7 @@ const REGION_FONT = 'bold 15px Tahoma, Arial, sans-serif';
 const LANDMARK_FONT = 'bold 12px Tahoma, Arial, sans-serif';
 const DETECT_RANGE_M = 80;
 const RESET_RANGE_M = 100;
+const MAP_ICONS = { shivta: '🏜️', yoav: '🏕️', line: '💥', zaura: '🌋', beit_hillel: '🌿', kadita: '⛰️' };
 
 let bound = false;
 let zoomMode = 'fit';
@@ -45,9 +46,37 @@ function handleZoomToggle() {
   drawMap();
 }
 
-function fitWorldRect(canvas, rect, dpr) {
-  const [ix0, iy0] = mapToImage(rect.minX, rect.minZ);
-  const [ix1, iy1] = mapToImage(rect.maxX, rect.maxZ);
+function renderTravelList() {
+  const modal = document.getElementById(MODAL_ID);
+  if (!modal) return;
+  let list = document.getElementById('full-map-travel-list');
+  if (!list) {
+    const side = modal.querySelector('.full-map-side') || modal.querySelector('.modal-body') || modal;
+    list = document.createElement('div');
+    list.id = 'full-map-travel-list';
+    list.className = 'travel-list';
+    list.dataset.travelList = '1';
+    side.appendChild(list);
+  }
+  list.innerHTML = '';
+  for (const [id, m] of Object.entries(MAPS)) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn-secondary btn-travel';
+    btn.dataset.map = id;
+    btn.dataset.region = id;
+    btn.textContent = `${MAP_ICONS[id] || '📍'} ${m.nameHe}`;
+    btn.addEventListener('click', async () => {
+      await loadMap(id);
+      closeFullMap();
+    });
+    list.appendChild(btn);
+  }
+}
+
+function fitWorldRect(canvas, rect, dpr, mapId) {
+  const [ix0, iy0] = mapToImage(rect.minX, rect.minZ, mapId);
+  const [ix1, iy1] = mapToImage(rect.maxX, rect.maxZ, mapId);
   const srcW = Math.max(1, ix1 - ix0);
   const srcH = Math.max(1, iy1 - iy0);
   const padPx = zoomMode === 'fit' ? 24 * dpr : 0;
@@ -59,9 +88,9 @@ function fitWorldRect(canvas, rect, dpr) {
   };
 }
 
-function drawLabels(ctx, toScreen, dpr) {
+function drawLabels(ctx, toScreen, dpr, mapId) {
   const placed = [];
-  for (const label of getMapLabels()) {
+  for (const label of getMapLabels(mapId)) {
     const [x, y] = toScreen(label.x, label.z);
     ctx.font = label.kind === 'region' ? REGION_FONT : LANDMARK_FONT;
     ctx.font = ctx.font.replace(/(\d+)px/, (_, px) => `${Math.round(px * dpr)}px`);
@@ -85,8 +114,7 @@ function drawFullMapDrones(ctx, canvas, toScreen, dpr, pulse) {
     const pos = isEntityActive(drone) && extractEntityPos(drone);
     if (!pos) continue;
     const dist = Math.hypot(pos.x - player.pos.x, pos.z - player.pos.z);
-    const inRange = dist <= DETECT_RANGE_M || (Boolean(drone._threatAlerted) && dist <= RESET_RANGE_M);
-    if (!inRange) continue;
+    if (dist > DETECT_RANGE_M && (!drone._threatAlerted || dist > RESET_RANGE_M)) continue;
     const [dx, dy] = toScreen(pos.x, pos.z);
     if (dx < 0 || dy < 0 || dx > canvas.width || dy > canvas.height) continue;
     drawDroneDot(ctx, dx, dy, drone.enemyType, dpr, pulse);
@@ -111,15 +139,17 @@ function drawMap() {
   if (canvas.width !== nextW) canvas.width = nextW;
   if (canvas.height !== nextH) canvas.height = nextH;
   const ctx = canvas.getContext('2d');
-  const image = getMapImage();
+  const mapId = getCurrentMapId();
+  const bounds = getMapBounds(mapId);
+  const image = getMapImage(mapId);
   const info = getObjectiveInfo();
-  const target = info.target;
+  const target = hasRemainingMissions() ? info.target : null;
   updateMissionCard(info);
   const route = target ? getRouteForObjective(player.pos, target) : null;
-  const worldRect = zoomMode === 'fit' ? computeFitRect(player.pos, target, route) : MAP_EXTENT;
-  const { scale, offsetX, offsetY } = fitWorldRect(canvas, worldRect, dpr);
+  const worldRect = zoomMode === 'fit' ? computeFitRect(player.pos, target, route, bounds) : bounds;
+  const { scale, offsetX, offsetY } = fitWorldRect(canvas, worldRect, dpr, mapId);
   const toScreen = (x, z) => {
-    const [ix, iy] = mapToImage(x, z);
+    const [ix, iy] = mapToImage(x, z, mapId);
     return [offsetX + ix * scale, offsetY + iy * scale];
   };
 
@@ -127,21 +157,18 @@ function drawMap() {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(image, offsetX, offsetY, image.width * scale, image.height * scale);
 
-  const active = getRegionAt(player.pos.x, player.pos.z);
   ctx.lineWidth = 2 * dpr;
-  for (const region of Object.values(REGIONS)) {
-    const [minX, maxX, minZ, maxZ] = region.rect;
-    const [x0, y0] = toScreen(Math.max(minX, -208), Math.max(minZ, -448));
-    const [x1, y1] = toScreen(Math.min(maxX, 208), Math.min(maxZ, 98));
-    ctx.setLineDash(region.id === active ? [] : [6 * dpr, 5 * dpr]);
-    ctx.strokeStyle = region.id === active ? 'rgba(126, 232, 220, 0.95)' : 'rgba(255, 255, 255, 0.35)';
-    ctx.strokeRect(x0, y0, x1 - x0, y1 - y0);
-  }
   ctx.setLineDash([]);
+  ctx.strokeStyle = 'rgba(126, 232, 220, 0.95)';
+  const regionRect = REGIONS[mapId]?.rect;
+  const [bx0, by0] = toScreen(regionRect ? regionRect[0] : bounds.minX, regionRect ? regionRect[2] : bounds.minZ);
+  const [bx1, by1] = toScreen(regionRect ? regionRect[1] : bounds.maxX, regionRect ? regionRect[3] : bounds.maxZ);
+  ctx.strokeRect(bx0, by0, bx1 - bx0, by1 - by0);
+
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.direction = 'rtl';
-  drawLabels(ctx, toScreen, dpr);
+  drawLabels(ctx, toScreen, dpr, mapId);
   drawRoute(ctx, route, toScreen, dpr);
 
   let missionIcons = 0;
@@ -172,7 +199,9 @@ function drawMap() {
   setDataset(canvas, 'scale', scale.toFixed(4));
   setDataset(canvas, 'zoomMode', zoomMode);
 
-  for (const button of document.querySelectorAll('.btn-travel')) button.classList.toggle('active', button.dataset.region === active);
+  for (const button of document.querySelectorAll('#full-map-travel-list .btn-travel')) {
+    button.classList.toggle('active', button.dataset.map === mapId || button.dataset.region === mapId);
+  }
 }
 
 function stopLoop() {
@@ -201,6 +230,7 @@ export function openFullMap() {
   if (!runtime.isPlaying || runtime.isDead || runtime.modalOpen || runtime.shopOpen || runtime.campaignModalOpen || isFullMapOpen()) return;
   ensureStylesheet();
   ensureFullMapDom(handleZoomToggle);
+  if (!document.querySelector('#full-map-travel-list .btn-travel')) renderTravelList();
   resetInputState();
   releaseGameLock();
   runtime.modalOpen = true;
@@ -218,15 +248,11 @@ export function initFullMap() {
   trackObjective();
   ensureStylesheet();
   ensureFullMapDom(handleZoomToggle);
+  renderTravelList();
   if (bound) return;
   bound = true;
   document.getElementById('btn-close-full-map')?.addEventListener('click', closeFullMap);
-  for (const button of document.querySelectorAll('.btn-travel')) {
-    button.addEventListener('click', () => {
-      travelTo(button.dataset.region);
-      closeFullMap();
-    });
-  }
+  document.getElementById('btn-full-map-done')?.addEventListener('click', closeFullMap);
   window.addEventListener('keydown', (e) => {
     if (e.code === 'KeyM' && !isFullMapOpen()) openFullMap();
     if (e.code !== 'Escape' || !isFullMapOpen()) return;

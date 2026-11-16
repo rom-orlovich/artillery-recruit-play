@@ -1,5 +1,7 @@
 import * as THREE from 'three';
+import { MAP_BIOMES } from './maps/map-biomes.js';
 import { ensureTimeOfDay, getSkyPhase, setTimeOfDay, registerTimeListener } from './world-time.js';
+import { getActiveTerrainMap } from './world-terrain.js';
 import {
   ATMOSPHERES,
   DAY_KEYFRAMES,
@@ -8,7 +10,6 @@ import {
   SKY_DOME_FRAGMENT
 } from './world-sky-presets.js';
 import {
-  createHorizonRidges,
   createEnvManager,
   createHeadlampController,
   createPresetBlender
@@ -17,15 +18,39 @@ import {
 export { getSkyPhase, setTimeOfDay, LINE_DUSK };
 
 const SKY_RADIUS = 1400;
-const REGION_ORDER = ['shivta', 'yoav', 'line'];
+const PRESET_ORDER = ['negev', 'golan', 'galilee', 'hula', 'shivta', 'yoav', 'line'];
 
 let activeDispose = null;
+let activeSky = null;
+let pendingMapId = 'shivta';
+
+function resolvePreset(mapId) {
+  if (ATMOSPHERES[mapId]) return mapId;
+  const preset = MAP_BIOMES[mapId]?.skyPreset;
+  if (preset && ATMOSPHERES[preset]) return preset;
+  return 'negev';
+}
 
 export function disposeSky() {
   if (!activeDispose) return;
   const fn = activeDispose;
   activeDispose = null;
+  activeSky = null;
   fn();
+}
+
+export function applyMapAtmosphere(mapId) {
+  pendingMapId = mapId || 'shivta';
+  if (!activeSky) return;
+  activeSky.mapId = pendingMapId;
+  activeSky.preset = resolvePreset(pendingMapId);
+  const hour = ensureTimeOfDay();
+  const mixed = activeSky.blend({ [activeSky.preset]: 1 }, hour);
+  activeSky.applyUniforms(mixed);
+  activeSky.scene.fog.color.copy(mixed.fog);
+  activeSky.scene.fog.density = mixed.fogDensity;
+  activeSky.scene.environmentIntensity = mixed.envIntensity;
+  activeSky.renderer.toneMappingExposure = mixed.exposure;
 }
 
 export function createSky(scene, renderer) {
@@ -55,19 +80,19 @@ export function createSky(scene, renderer) {
   dome.name = 'sky-dome';
   dome.frustumCulled = false;
   dome.renderOrder = -1;
+  dome.raycast = () => {};
   scene.add(dome);
 
-  const ridges = createHorizonRidges(scene);
   const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 1);
   const sun = new THREE.DirectionalLight(0xffffff, 2);
   scene.add(hemi, sun, sun.target);
-  scene.fog = new THREE.FogExp2(0xffffff, 0.003);
+  scene.fog = new THREE.FogExp2(0xffffff, 0.0025);
 
   const envManager = createEnvManager(scene, renderer);
   const headlamp = createHeadlampController();
-  const blend = createPresetBlender(REGION_ORDER, ATMOSPHERES, DAY_KEYFRAMES);
+  const blend = createPresetBlender(PRESET_ORDER, ATMOSPHERES, DAY_KEYFRAMES);
 
-  function applySkyUniforms(mixed) {
+  function applyUniforms(mixed) {
     skyUniforms.zenith.value.copy(mixed.zenith);
     skyUniforms.horizon.value.copy(mixed.horizon);
     skyUniforms.horizonAway.value.copy(mixed.horizonAway);
@@ -79,8 +104,18 @@ export function createSky(scene, renderer) {
     skyUniforms.stars.value = mixed.stars;
   }
 
+  const initialMapId = pendingMapId === 'shivta' ? getActiveTerrainMap() : pendingMapId;
+  activeSky = {
+    scene,
+    renderer,
+    blend,
+    applyUniforms,
+    mapId: initialMapId,
+    preset: resolvePreset(initialMapId)
+  };
+
   const initHour = ensureTimeOfDay();
-  applySkyUniforms(blend(null, initHour));
+  applyUniforms(blend({ [activeSky.preset]: 1 }, initHour));
   envManager.syncEnvMap(initHour, skyUniforms);
 
   activeDispose = () => {
@@ -89,24 +124,32 @@ export function createSky(scene, renderer) {
     headlamp.dispose();
     dome.geometry.dispose();
     dome.material.dispose();
-    for (const ridge of ridges) {
-      ridge.geometry.dispose();
-      ridge.material.dispose();
-    }
   };
 
   return {
     sun,
     update(weights, camera, focus) {
+      const currentMap = getActiveTerrainMap();
+      if (currentMap && currentMap !== activeSky.mapId) {
+        activeSky.mapId = currentMap;
+        activeSky.preset = resolvePreset(currentMap);
+      }
       const hour = ensureTimeOfDay();
       headlamp.sync(camera, getSkyPhase(hour) === 'night');
-      const mixed = blend(weights, hour);
-      applySkyUniforms(mixed);
+      const presetWeights = weights && weights[activeSky.preset] !== undefined ? weights : { [activeSky.preset]: 1 };
+      const mixed = blend(presetWeights, hour);
+      applyUniforms(mixed);
       envManager.syncEnvMap(hour, skyUniforms);
       dome.position.copy(camera.position);
-      ridges[0].material.color.copy(mixed.ridgeNear).lerp(mixed.horizon, 0.18);
-      ridges[1].material.color.copy(mixed.ridgeFar).lerp(mixed.horizon, 0.38);
-      for (const ridge of ridges) ridge.position.set(camera.position.x, 0, camera.position.z);
+      const skyline = scene.getObjectByName(`skyline-${activeSky.mapId}`);
+      if (skyline) {
+        skyline.position.set(camera.position.x, 0, camera.position.z);
+        for (const child of skyline.children) {
+          if (child.material?.color) {
+            child.material.color.copy(child.name.endsWith('-far') ? mixed.ridgeFar : mixed.ridgeNear);
+          }
+        }
+      }
       hemi.color.copy(mixed.hemiSky);
       hemi.groundColor.copy(mixed.hemiGround);
       hemi.intensity = mixed.hemiIntensity;

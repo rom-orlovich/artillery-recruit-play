@@ -6,7 +6,7 @@ const DOWN = new THREE.Vector3(0, -1, 0);
 const MAX_FOOT_GAP = 0.03, STEP_SIZE = 0.15, MAX_STEPS = 10, MAX_FLAT_STEPS = 13;
 const FALLBACK_BACK_DIST = 1.2, HULL_CLEARANCE = 0.85, MAX_HEIGHT_ABOVE_TERRAIN = 2.0;
 const RAY_LIFT = 0.3, GROUND_RAY_LIFT = 1.0, TEST_RAY_LIFT = 0.05;
-const SEARCH_ANGLES = [0, Math.PI / 6, -Math.PI / 6, Math.PI / 3, -Math.PI / 3, Math.PI / 2, -Math.PI / 2, (2 * Math.PI) / 3, (-2 * Math.PI) / 3, (5 * Math.PI) / 6, (-5 * Math.PI) / 6, Math.PI];
+const SEARCH_ANGLES = [0, 1, -1, 2, -2, 3, -3, 4, -4, 5, -5, 6].map((k) => (k * Math.PI) / 6);
 const raycaster = new THREE.Raycaster(), rayOrigin = new THREE.Vector3(), rayHits = [];
 const footResult = { minY: 0, maxY: 0, gap: 0, maxOverTerrain: 0, onDoher: false };
 const probeResult = { ok: false, y: 0, gap: Infinity };
@@ -83,12 +83,8 @@ function castFeet(tMeshes, envMeshes, x, yOrigin, z, ry) {
     const ty = ground(wx, wz);
     const targetY = castDownAt(wx, yOrigin, wz, tMeshes);
     let fy;
-    if (targetY >= ty + GROUND_RAY_LIFT) {
-      fy = targetY; targetFeet++;
-    } else {
-      const groundY = footGroundY(wx, wz, envMeshes, ty);
-      if (targetY > groundY) { fy = targetY; targetFeet++; } else { fy = groundY; }
-    }
+    if (targetY >= ty + GROUND_RAY_LIFT) { fy = targetY; targetFeet++; }
+    else { const gy = footGroundY(wx, wz, envMeshes, ty); if (targetY > gy) { fy = targetY; targetFeet++; } else fy = gy; }
     if (fy < minY) minY = fy;
     if (fy > maxY) maxY = fy;
     if (fy - ty > maxOverTerrain) maxOverTerrain = fy - ty;
@@ -115,11 +111,15 @@ function computeHullBox(slot, target) {
   return hullBox;
 }
 
-function isOutsideHull(x, z, y, box) {
+function clampLocalToHull(x, y, z, box) {
   localPos.set(x, y, z).applyMatrix4(invSlot);
-  const lx = localPos.x, lz = localPos.z;
-  const cx = lx < box.min.x ? box.min.x : lx > box.max.x ? box.max.x : lx;
-  const cz = lz < box.min.z ? box.min.z : lz > box.max.z ? box.max.z : lz;
+  const cx = localPos.x < box.min.x ? box.min.x : localPos.x > box.max.x ? box.max.x : localPos.x;
+  const cz = localPos.z < box.min.z ? box.min.z : localPos.z > box.max.z ? box.max.z : localPos.z;
+  return { lx: localPos.x, lz: localPos.z, cx, cz };
+}
+
+function isOutsideHull(x, z, y, box) {
+  const { lx, lz, cx, cz } = clampLocalToHull(x, y, z, box);
   return Math.hypot(lx - cx, lz - cz) >= HULL_CLEARANCE - 1e-4;
 }
 
@@ -134,10 +134,7 @@ function placeSpawnBehindHull(s, target) {
 
 function pushOutsideHull(s, target) {
   const box = computeHullBox(s.slot, target);
-  localPos.set(s.x, s.y, s.z).applyMatrix4(invSlot);
-  const lx = localPos.x, lz = localPos.z;
-  const cx = lx < box.min.x ? box.min.x : lx > box.max.x ? box.max.x : lx;
-  const cz = lz < box.min.z ? box.min.z : lz > box.max.z ? box.max.z : lz;
+  const { lx, lz, cx, cz } = clampLocalToHull(s.x, s.y, s.z, box);
   const dx = lx - cx, dz = lz - cz, dist = Math.hypot(dx, dz);
   if (dist >= HULL_CLEARANCE) return box;
   let nx = lx, nz = lz;
@@ -172,8 +169,7 @@ function castFootSpan(x, z, cos, sin, yRef, meshes, useGround) {
 }
 
 function probeFlatSpot(x, z, ry, refY, envMeshes, allMeshes, onDoher) {
-  const cos = Math.cos(ry), sin = Math.sin(ry);
-  const hasAll = allMeshes && allMeshes.length > 0;
+  const cos = Math.cos(ry), sin = Math.sin(ry), hasAll = allMeshes && allMeshes.length > 0;
   const initOk = onDoher ? castFootSpan(x, z, cos, sin, refY + RAY_LIFT, allMeshes, !hasAll) : castFootSpan(x, z, cos, sin, 0, envMeshes, true);
   if (!initOk) { probeResult.ok = false; probeResult.gap = Infinity; return probeResult; }
   if (hasAll) {
@@ -248,7 +244,9 @@ export function snapCrewSpawns(spawns, pool, regionOf = null, scene = null) {
     if (!placed) placeSpawnBehindHull(s, target);
     const box = onDoher ? null : pushOutsideHull(s, target);
     const postReg = typeof regionOf === 'function' ? regionOf(s.x, s.z) : null;
-    settleFeet(s, postReg === region ? envMeshes : getSurfaceMeshes(postReg, scene, root, excludedEnv, envMeshCache), postReg === region ? allMeshes : getSurfaceMeshes(postReg, scene, root, excludedPool, allMeshCache), onDoher, box);
+    const envAfter = postReg === region ? envMeshes : getSurfaceMeshes(postReg, scene, root, excludedEnv, envMeshCache);
+    const allAfter = postReg === region ? allMeshes : getSurfaceMeshes(postReg, scene, root, excludedPool, allMeshCache);
+    settleFeet(s, envAfter, allAfter, onDoher, box);
     s.matrix.copy(composeMatrix(s.x, s.y, s.z, 0, s.ry, 0));
     let poolSlot = null;
     if (pool) for (let p = 0; p < pool.length; p++) if (pool[p].spawnIndex === i) { poolSlot = pool[p]; break; }

@@ -48,6 +48,7 @@ export function advanceGameClock(dtSec) {
     runtime.shopOpen ||
     runtime.campaignModalOpen ||
     runtime.enlistOpen ||
+    runtime.dialogueOpen ||
     dtSec <= 0
   ) return cur;
   runtime.timeOfDay = normalizeHours(cur + dtSec * GAME_HOURS_PER_REAL_SEC);

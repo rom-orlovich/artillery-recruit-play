@@ -7,6 +7,7 @@ import { formatClock } from './world-time.js';
 
 export { showHitMarker, hideRadio, showRadio, showToast };
 
+
 const refs = {};
 function ref(id) {
   if (!refs[id]) refs[id] = document.getElementById(id);
@@ -36,6 +37,7 @@ const ACTION_LABELS = {
 
 let listenersBound = false;
 let lastNearby = null;
+let interactLabelEl = null;
 
 let lastStatusKey = '';
 let lastAbilityKey = '';
@@ -232,13 +234,14 @@ export function updateHUD(nearbyInteraction) {
     }
     const btnInteract = ref('btn-touch-interact');
     if (btnInteract) {
+      if (!interactLabelEl) interactLabelEl = btnInteract.querySelector('.label');
       const actionLabel = getContextActionLabel(nearbyInteraction);
       if (actionLabel) {
-        btnInteract.textContent = actionLabel;
+        if (interactLabelEl) interactLabelEl.textContent = actionLabel;
         btnInteract.classList.remove('hidden');
         btnInteract.classList.add('pulse');
       } else {
-        btnInteract.textContent = 'פעולה';
+        if (interactLabelEl) interactLabelEl.textContent = 'פעולה';
         btnInteract.classList.add('hidden');
         btnInteract.classList.remove('pulse');
       }

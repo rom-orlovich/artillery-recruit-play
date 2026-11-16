@@ -170,10 +170,7 @@ function collectSkinnedFarBoxes(posAttr, colorAttr, skinIndex, skinWeight, child
     if (!entry) localBoxes.set(b, entry = { box: new THREE.Box3(), r: 0, g: 0, bl: 0, n: 0 });
     tmpVec.set(posAttr.getX(i), posAttr.getY(i), posAttr.getZ(i)).applyMatrix4(invMats[b]);
     entry.box.expandByPoint(tmpVec);
-    entry.r += colorAttr.getX(i);
-    entry.g += colorAttr.getY(i);
-    entry.bl += colorAttr.getZ(i);
-    entry.n++;
+    entry.r += colorAttr.getX(i); entry.g += colorAttr.getY(i); entry.bl += colorAttr.getZ(i); entry.n++;
   }
   for (const [b, e] of localBoxes.entries()) pushBoxCandidate(candidates, bones[b].matrixWorld, e.box, e.r, e.g, e.bl, e.n);
 }
@@ -218,10 +215,10 @@ function bakePosedGeometry(template, mixer, soldierMesh, clip, pose) {
   }
   const near = parts.length ? mergeGeometries(parts, false) : null;
   for (const p of parts) p.dispose();
-  if (near) near.computeBoundingSphere();
+  if (near) { near.computeBoundingSphere(); near.userData.shared = true; }
   const far = farParts.length ? mergeGeometries(farParts, false) : buildBoxSoldierGeometry(pose);
   for (const p of farParts) p.dispose();
-  if (far) far.computeBoundingSphere();
+  if (far) { far.computeBoundingSphere(); far.userData.shared = true; }
   return { near, far };
 }
 
@@ -231,6 +228,7 @@ function buildSoldierAssets(gltf) {
   root.traverse((c) => {
     if (!soldierMesh && c.isSkinnedMesh) soldierMesh = c;
     if (!m16Mesh && c.isMesh && !c.isSkinnedMesh) m16Mesh = c;
+    if (c.isMesh && c.geometry) c.geometry.userData.shared = true;
   });
   const modelBox = new THREE.Group();
   modelBox.add(root);
@@ -247,8 +245,7 @@ function buildSoldierAssets(gltf) {
       m16Mesh.parent.getWorldPosition(tmpVec);
       if (Math.abs(tmpVec.x - center.x) > 0.05) yawOffset = tmpVec.x < center.x ? Math.PI : 0;
     } else {
-      const m16Center = new THREE.Box3().setFromObject(m16Mesh).getCenter(new THREE.Vector3());
-      yawOffset = m16Center.z >= center.z ? Math.PI : 0;
+      yawOffset = new THREE.Box3().setFromObject(m16Mesh).getCenter(new THREE.Vector3()).z >= center.z ? Math.PI : 0;
     }
   }
   if (clips.stand) { const a = mixer.clipAction(clips.stand); a.reset(); a.play(); mixer.setTime(0); }

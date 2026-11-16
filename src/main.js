@@ -21,14 +21,10 @@ import { installDebugHook } from './debug-hook.js';
 import { bindTargetEntities } from './current-target.js';
 import { findNearbyCampaignInteraction, getActiveCarryPoints } from './campaign-objectives.js';
 import { initThreatAlerts, updateThreatAlerts, resetThreatAlerts } from './threat-alerts.js';
+import { initNpcLoop, tickNpcLoop, findNearbyNpcInteraction, handleNpcInteract, closeNpcDialogue } from './npc-loop.js';
+import { initFunLoop, updateFunLoop } from './fun-loop.js';
 
-export const appContext = {
-  scene: null,
-  camera: null,
-  renderer: null,
-  canvas: null,
-  modules: {}
-};
+export const appContext = { scene: null, camera: null, renderer: null, canvas: null, modules: {} };
 
 function hasTouchSupport() {
   return Boolean(
@@ -40,22 +36,14 @@ function hasTouchSupport() {
 }
 
 async function loadOptionalModule(path) {
-  try {
-    return await import(path);
-  } catch (err) {
-    console.error('[ModuleLoadError]', path, err);
-    return null;
-  }
+  try { return await import(path); }
+  catch (err) { console.error('[ModuleLoadError]', path, err); return null; }
 }
 
 function isAnyModalOpen() {
   return Boolean(
-    runtime.shopOpen ||
-    runtime.enlistOpen ||
-    runtime.campaignModalOpen ||
-    runtime.fireMapOpen ||
-    runtime.dischargeModalOpen ||
-    runtime.modalOpen
+    runtime.shopOpen || runtime.enlistOpen || runtime.campaignModalOpen ||
+    runtime.fireMapOpen || runtime.dischargeModalOpen || runtime.modalOpen || runtime.dialogueOpen
   );
 }
 
@@ -124,11 +112,8 @@ function togglePause() {
     startGame();
     return;
   }
-  if (runtime.modalOpen) {
-    closeAllModals();
-  } else {
-    openPauseModal();
-  }
+  if (runtime.modalOpen) closeAllModals();
+  else openPauseModal();
   updateTouchVisibility();
 }
 
@@ -151,6 +136,7 @@ async function bootstrap() {
   appContext.scene = scene;
   appContext.camera = camera;
   appContext.renderer = renderer;
+  if (new URLSearchParams(location.search).has('diag')) import('./diag-overlay.js').then((diag) => diag.initDiagOverlay(renderer, scene));
   appContext.canvas = canvas;
 
   syncDerivedStats();
@@ -169,15 +155,8 @@ async function bootstrap() {
   ]);
 
   appContext.modules = {
-    audio: audioMod,
-    enlistment: enlistMod,
-    combat: combatMod,
-    entities: entitiesMod,
-    shop: shopMod,
-    missions: missionsMod,
-    minimap: minimapMod,
-    hud: hudMod,
-    campaign: campaignMod
+    audio: audioMod, enlistment: enlistMod, combat: combatMod, entities: entitiesMod,
+    shop: shopMod, missions: missionsMod, minimap: minimapMod, hud: hudMod, campaign: campaignMod
   };
 
   audioMod?.initAudio?.();
@@ -191,6 +170,8 @@ async function bootstrap() {
   hudMod?.initHUD?.();
   initWaypointCompass(scene, camera);
   initThreatAlerts();
+  initNpcLoop(camera);
+  initFunLoop(appContext);
   if (!hudMod) syncFallbackHUD();
 
   function onInteract() {
@@ -213,7 +194,8 @@ async function bootstrap() {
         runtime.isPlaying = false;
         updateTouchVisibility();
       }
-      return campHandled;
+      if (campHandled) return true;
+      return handleNpcInteract();
     }
     if (!wasCampaignOpen && runtime.campaignModalOpen) {
       savePlayerPosition();
@@ -273,6 +255,7 @@ async function bootstrap() {
         openCampaignJournal();
       }
     } else if (e.code === 'Escape') {
+      if (closeNpcDialogue()) { updateTouchVisibility(); return; }
       handleEscapeKey();
       updateTouchVisibility();
     }
@@ -311,13 +294,7 @@ async function bootstrap() {
 
   installDebugHook({
     modules: { state: stateMod, config: configMod, audio: audioMod, campaign: campaignMod, entities: entitiesMod, combat: combatMod, missions: missionsMod, hud: hudMod },
-    camera,
-    entitiesApi,
-    onInteract,
-    startGame,
-    togglePause,
-    setModalVisible,
-    syncFallbackHUD
+    camera, entitiesApi, onInteract, startGame, togglePause, setModalVisible, syncFallbackHUD
   });
 
   if (typeof window !== 'undefined' && window.__gameDebug) {
@@ -350,6 +327,8 @@ async function bootstrap() {
 
     updateWorldAnimations(tSec);
     updateWaypointCompass(tSec);
+    tickNpcLoop(dt);
+    updateFunLoop(dt);
 
     const activePlay = isActivePlay();
     if (crosshairEl && lastCrosshairActive !== activePlay) {
@@ -369,7 +348,7 @@ async function bootstrap() {
       updateThreatAlerts(dt, camera, entitiesApi);
       missionsMod?.updateMissions?.(dt, entitiesApi);
       campaignMod?.updateCampaignObjectives?.(dt, entitiesApi);
-      const nearby = missionsMod?.findNearbyInteraction?.(entitiesApi) || findNearbyCampaignInteraction() || null;
+      const nearby = missionsMod?.findNearbyInteraction?.(entitiesApi) || findNearbyCampaignInteraction() || findNearbyNpcInteraction() || null;
       hudMod?.updateHUD?.(nearby);
       minimapMod?.drawMinimap?.(entitiesApi);
     }

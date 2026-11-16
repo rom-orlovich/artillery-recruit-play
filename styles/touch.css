@@ -77,6 +77,10 @@
   touch-action: none;
 }
 
+#btn-touch-interact .icon::before {
+  content: '✋ ';
+}
+
 .touch-btn {
   min-width: 76px;
   min-height: 44px;

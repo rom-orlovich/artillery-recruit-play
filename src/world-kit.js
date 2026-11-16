@@ -11,10 +11,12 @@ const SLOTS_PER_ROW = ATLAS_WIDTH / SLOT_WIDTH;
 const PROXY_MATERIAL = new THREE.MeshBasicMaterial({ visible: false });
 const PROXY_GEOMETRY = new THREE.BoxGeometry(1, 1, 1);
 const PAINTABLE_TYPES = new Set(['MeshLambertMaterial', 'MeshStandardMaterial']);
+PROXY_MATERIAL.userData.shared = true;
+PROXY_GEOMETRY.userData.shared = true;
 
 export const colliders = [];
 export const worldShootables = [];
-export const regionShootables = { shivta: [], yoav: [], line: [] };
+export const regionShootables = { shivta: [], yoav: [], line: [], zaura: [], beit_hillel: [], kadita: [] };
 export const distanceCulled = [];
 
 const atlasCanvas = document.createElement('canvas');
@@ -24,8 +26,40 @@ const atlasContext = atlasCanvas.getContext('2d');
 const atlasTexture = new THREE.CanvasTexture(atlasCanvas);
 atlasTexture.colorSpace = THREE.SRGBColorSpace;
 atlasTexture.anisotropy = 4;
+atlasTexture.userData.shared = true;
 const atlasMaterial = new THREE.MeshLambertMaterial({ map: atlasTexture });
+atlasMaterial.userData.shared = true;
 let nextSlot = 0;
+
+function resolveMaterial(material) {
+  if (typeof material !== 'string') return material;
+  const resolved = getMaterial(material);
+  if (resolved) resolved.userData.shared = true;
+  return resolved;
+}
+
+function disposeMaterial(mat) {
+  if (!mat || mat.userData?.shared) return;
+  for (const val of Object.values(mat)) {
+    if (val?.isTexture && !val.userData?.shared) val.dispose();
+  }
+  if (mat.uniforms) {
+    for (const u of Object.values(mat.uniforms)) {
+      if (u?.value?.isTexture && !u.value.userData?.shared) u.value.dispose();
+    }
+  }
+  mat.dispose();
+}
+
+export function disposeMapGroup(group) {
+  if (!group) return;
+  group.traverse((obj) => {
+    if (obj.geometry && !obj.geometry.userData?.shared) obj.geometry.dispose();
+    if (Array.isArray(obj.material)) obj.material.forEach(disposeMaterial);
+    else disposeMaterial(obj.material);
+  });
+  group.removeFromParent();
+}
 
 export function resetWorldKit() {
   colliders.length = 0;
@@ -34,6 +68,7 @@ export function resetWorldKit() {
   distanceCulled.length = 0;
   nextSlot = 0;
   atlasContext.clearRect(0, 0, ATLAS_WIDTH, ATLAS_HEIGHT);
+  atlasTexture.needsUpdate = true;
 }
 
 export const ground = (x, z) => getTerrainHeight(x, z);
@@ -45,15 +80,13 @@ export function addCollider(region, cx, cz, w, d, h = 3) {
   proxy.position.set(cx, ground(cx, cz) + h / 2, cz);
   proxy.updateMatrixWorld(true);
   proxy.name = 'shoot-proxy';
-  regionShootables[region].push(proxy);
+  (regionShootables[region] ??= []).push(proxy);
 }
 
 export function addSegmentCollider(region, from, to, thickness, h) {
   const cx = (from[0] + to[0]) / 2;
   const cz = (from[1] + to[1]) / 2;
-  const w = Math.abs(to[0] - from[0]) + thickness;
-  const d = Math.abs(to[1] - from[1]) + thickness;
-  addCollider(region, cx, cz, w, d, h);
+  addCollider(region, cx, cz, Math.abs(to[0] - from[0]) + thickness, Math.abs(to[1] - from[1]) + thickness, h);
 }
 
 function applyWorldUV(geometry, scale) {
@@ -72,7 +105,7 @@ function applyWorldUV(geometry, scale) {
 }
 
 function normalizeGeometry(source, matrix, material, color) {
-  let geometry = source.index ? source.toNonIndexed() : source.clone();
+  const geometry = source.index ? source.toNonIndexed() : source.clone();
   for (const name of Object.keys(geometry.attributes)) {
     if (!['position', 'normal', 'uv'].includes(name)) geometry.deleteAttribute(name);
   }
@@ -112,15 +145,14 @@ function paintColor(material) {
 
 export function createBake() {
   const byMaterial = new Map();
-  const paint = getMaterial('paint');
-  const resolve = (material) => (typeof material === 'string' ? getMaterial(material) : material);
+  const paint = resolveMaterial('paint');
   const push = (material, geometry) => {
     if (!byMaterial.has(material)) byMaterial.set(material, []);
     byMaterial.get(material).push(geometry);
   };
   const bake = {
     add(material, geometry, matrix, color) {
-      const resolved = resolve(material);
+      const resolved = resolveMaterial(material);
       const painted = paintColor(resolved);
       const target = painted ? paint : resolved;
       push(target, normalizeGeometry(geometry, matrix, target, painted || color));
@@ -189,8 +221,7 @@ function drawSignSlot(slotX, slotY, text, style) {
     const size = style.painted ? 50 : lines.length > 1 ? 40 : 46;
     ctx.font = style.painted ? `bold ${size}px "Comic Sans MS", Tahoma, Arial` : `bold ${size}px Tahoma, Arial, sans-serif`;
     ctx.fillStyle = colors[i % colors.length];
-    const y = SLOT_HEIGHT / 2 + (i - (lines.length - 1) / 2) * (size + 4);
-    ctx.fillText(line, SLOT_WIDTH / 2, y, SLOT_WIDTH - 30);
+    ctx.fillText(line, SLOT_WIDTH / 2, SLOT_HEIGHT / 2 + (i - (lines.length - 1) / 2) * (size + 4), SLOT_WIDTH - 30);
   });
   ctx.restore();
 }
@@ -210,14 +241,12 @@ export function addSign(bake, text, x, y, z, ry, w, h, style = {}) {
   for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) ? u1 : u0, uv.getY(i) ? v1 : v0);
   const offset = style.thickness ?? 0.03;
   for (const side of [0, Math.PI]) {
-    const dx = Math.sin(ry + side) * offset;
-    const dz = Math.cos(ry + side) * offset;
-    bake.add(atlasMaterial, plane, composeMatrix(x + dx, y, z + dz, 0, ry + side, 0));
+    bake.add(atlasMaterial, plane, composeMatrix(x + Math.sin(ry + side) * offset, y, z + Math.cos(ry + side) * offset, 0, ry + side, 0));
   }
 }
 
 export function createInstanced(geometry, material, transforms, colors) {
-  const mesh = new THREE.InstancedMesh(geometry, typeof material === 'string' ? getMaterial(material) : material, transforms.length);
+  const mesh = new THREE.InstancedMesh(geometry, resolveMaterial(material), transforms.length);
   const color = new THREE.Color();
   transforms.forEach((matrix, i) => {
     mesh.setMatrixAt(i, matrix);

@@ -85,7 +85,7 @@
     <div id="joy-zone"><div id="joy-base"></div><div id="joy-knob"></div></div>
     <div class="touch-actions-grid">
       <button type="button" id="btn-touch-fire" class="touch-btn touch-fire">🔥 ירי</button>
-      <button type="button" id="btn-touch-interact" class="touch-btn">✋ פעולה</button>
+      <button type="button" id="btn-touch-interact" class="touch-btn"><span class="icon" aria-hidden="true"></span><span class="label">פעולה</span></button>
       <button type="button" id="btn-touch-ability" class="touch-btn touch-ability">⚡ יכולת</button>
       <button type="button" id="btn-touch-sprint" class="touch-btn">🏃 ריצה</button>
       <button type="button" id="btn-touch-jump" class="touch-btn">⬆️ קפיצה</button>
@@ -230,27 +230,32 @@
         <canvas id="full-map-canvas"></canvas>
         <div class="full-map-side">
           <p class="full-map-hint">נסיעה מהירה</p>
-          <button type="button" class="btn-secondary btn-travel" data-region="shivta">🏜️ מחנה שבטה</button>
-          <button type="button" class="btn-secondary btn-travel" data-region="yoav">🏕️ מחנה יואב</button>
-          <button type="button" class="btn-secondary btn-travel" data-region="line">💥 קו הסוללה</button>
+          <div id="full-map-travel-list" class="travel-list" data-travel-list>
+            <button type="button" class="btn-secondary btn-travel" data-map="shivta" data-region="shivta">🏜️ מחנה שבטה</button>
+            <button type="button" class="btn-secondary btn-travel" data-map="yoav" data-region="yoav">🏕️ מחנה יואב</button>
+            <button type="button" class="btn-secondary btn-travel" data-map="line" data-region="line">💥 קו הסוללה</button>
+            <button type="button" class="btn-secondary btn-travel" data-map="zaura" data-region="zaura">🌋 זעורה (רמת הגולן)</button>
+            <button type="button" class="btn-secondary btn-travel" data-map="beit_hillel" data-region="beit_hillel">🌿 בית הלל (עמק החולה)</button>
+            <button type="button" class="btn-secondary btn-travel" data-map="kadita" data-region="kadita">⛰️ כדיתא (גליל עליון)</button>
+          </div>
         </div>
       </div>
       <div class="modal-footer"><button type="button" id="btn-full-map-done" class="btn-primary">חזור לשטח</button></div>
     </div>
   </div>
 
-  <div id="help-panel" class="overlay-modal hidden">
+  <div id="help-panel" class="overlay-modal hidden" role="dialog" aria-modal="true" aria-labelledby="help-panel-title">
     <div class="modal-card help-card">
-      <div class="modal-header"><h2>❓ מדריך ועזרה</h2><button type="button" id="help-close" class="btn-secondary modal-close-btn" aria-label="סגור">✕</button></div>
+      <div class="modal-header"><h2 id="help-panel-title">❓ מדריך ועזרה</h2><button type="button" id="help-close" class="btn-secondary modal-close-btn" aria-label="סגור">✕</button></div>
       <div class="help-tabs" role="tablist">
-        <button type="button" class="btn-secondary help-tab active" data-help-tab="guide" aria-selected="true">📖 איך משחקים</button>
-        <button type="button" class="btn-secondary help-tab" data-help-tab="controls" aria-selected="false">🎮 שליטה</button>
-        <button type="button" class="btn-secondary help-tab" data-help-tab="keys" aria-selected="false">⌨️ מקשי מקלדת</button>
+        <button type="button" id="help-tab-guide" class="btn-secondary help-tab active" role="tab" data-help-tab="guide" aria-selected="true" aria-controls="help-guide">📖 איך משחקים</button>
+        <button type="button" id="help-tab-controls" class="btn-secondary help-tab" role="tab" data-help-tab="controls" aria-selected="false" aria-controls="help-controls">🎮 שליטה</button>
+        <button type="button" id="help-tab-keys" class="btn-secondary help-tab" role="tab" data-help-tab="keys" aria-selected="false" aria-controls="help-keys">⌨️ מקשי מקלדת</button>
       </div>
       <div class="modal-body help-body">
-        <div id="help-guide"></div>
-        <div id="help-controls" class="hidden"></div>
-        <div id="help-keys" class="hidden"></div>
+        <div id="help-guide" role="tabpanel" aria-labelledby="help-tab-guide"></div>
+        <div id="help-controls" class="hidden" role="tabpanel" aria-labelledby="help-tab-controls"></div>
+        <div id="help-keys" class="hidden" role="tabpanel" aria-labelledby="help-tab-keys"></div>
       </div>
     </div>
   </div>

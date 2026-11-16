@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { EVENTS } from './config.js';
 import { save, player, runtime, getCurrentRole, getDamageMultiplier, addScoreAndMoney, emit } from './state.js';
 import { worldShootables } from './world.js';
-import { createWeaponModel, getWeaponGroup, spawnParticles, updateWeaponVisuals, updateParticles } from './combat-effects.js';
+import { createWeaponModel, getWeaponGroup, spawnParticles, updateWeaponVisuals, updateParticles, isReloading } from './combat-effects.js';
 import { isAimAssistActive, findAimAssistHit, snapCrosshairGently, updateAimAssist } from './aim-assist.js';
 
 export { spawnParticles };
@@ -144,6 +144,7 @@ export function killEntity(entity, entitiesApi = null, missionsApi = null, scene
 
 export function fireWeapon(camera, entitiesApi, missionsApi) {
   if (!runtime.isPlaying || runtime.isDead || runtime.shopOpen || runtime.enlistOpen || runtime.paused || runtime.modalOpen) return;
+  if (isReloading() || runtime.reloading) return;
   if (player.carryingType) {
     emit(EVENTS.TOAST, { message: 'לא ניתן לירות בזמן נשיאת ציוד!' });
     return;

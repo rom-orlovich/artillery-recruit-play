@@ -23,6 +23,7 @@ const HUD_IDS = [
   'hud-objective-pill',
   'hud-compass',
   'minimap-wrap',
+  'btn-help',
   'radio-bar',
   'dialogue-box'
 ];

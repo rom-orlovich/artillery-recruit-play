@@ -1,19 +1,35 @@
 import * as THREE from 'three';
-import { TERRAIN_EXTENT, ROADS, GUNS, FOOTPRINTS, FEATURES, DESERT_EDGE_Z, GUN_BODY_OFFSET } from './world-layout.js';
+import { MAP_BIOMES } from './maps/map-biomes.js';
+import * as layout from './world-layout.js';
 import { createSeededRandom, loadWorldTexture } from './props/materials.js';
+import { getActiveTerrainMap } from './world-terrain.js';
 
-const SPLAT_SIZE = 1024;
-const ROCK_PATCH_COUNT = 70;
+const SPLAT_SIZE = 256;
+const ROCK_PATCH_COUNT = 36;
 const SHOULDER_EXTRA = 2.4;
+const LEGACY_ROAD_MAPS = new Set(['shivta', 'yoav', 'line']);
 
-const extentX = TERRAIN_EXTENT.maxX - TERRAIN_EXTENT.minX;
-const extentZ = TERRAIN_EXTENT.maxZ - TERRAIN_EXTENT.minZ;
+let lastSplatMapId = null;
 
-function worldToSplat(x, z) {
-  return [((x - TERRAIN_EXTENT.minX) / extentX) * SPLAT_SIZE, ((z - TERRAIN_EXTENT.minZ) / extentZ) * SPLAT_SIZE];
+function resolveGroundMapId(mapId, splatTexture) {
+  if (typeof mapId === 'string' && MAP_BIOMES[mapId]) return mapId;
+  const texMapId = splatTexture?.userData?.mapId;
+  if (typeof texMapId === 'string' && MAP_BIOMES[texMapId]) return texMapId;
+  const active = getActiveTerrainMap();
+  if (MAP_BIOMES[active]) return active;
+  if (lastSplatMapId && MAP_BIOMES[lastSplatMapId]) return lastSplatMapId;
+  return 'shivta';
 }
 
-const metersToPx = (m) => (m / extentX) * SPLAT_SIZE;
+function makeProjector(bounds) {
+  const [minX, maxX, minZ, maxZ] = bounds;
+  const extentX = Math.max(1, maxX - minX);
+  const extentZ = Math.max(1, maxZ - minZ);
+  return {
+    toPx: (x, z) => [((x - minX) / extentX) * SPLAT_SIZE, ((z - minZ) / extentZ) * SPLAT_SIZE],
+    m2px: (m) => (m / extentX) * SPLAT_SIZE
+  };
+}
 
 function channelCanvas() {
   const canvas = document.createElement('canvas');
@@ -27,21 +43,21 @@ function channelCanvas() {
   return { canvas, ctx };
 }
 
-function strokePolyline(ctx, points, widthMeters, style) {
+function strokePolyline(ctx, proj, points, widthMeters, style) {
   ctx.strokeStyle = style;
-  ctx.lineWidth = metersToPx(widthMeters);
+  ctx.lineWidth = Math.max(1, proj.m2px(widthMeters));
   ctx.beginPath();
   points.forEach(([x, z], i) => {
-    const [px, py] = worldToSplat(x, z);
+    const [px, py] = proj.toPx(x, z);
     if (i === 0) ctx.moveTo(px, py);
     else ctx.lineTo(px, py);
   });
   ctx.stroke();
 }
 
-function softBlob(ctx, x, z, radiusMeters, strength) {
-  const [px, py] = worldToSplat(x, z);
-  const r = metersToPx(radiusMeters);
+function softBlob(ctx, proj, x, z, radiusMeters, strength) {
+  const [px, py] = proj.toPx(x, z);
+  const r = Math.max(1, proj.m2px(radiusMeters));
   const gradient = ctx.createRadialGradient(px, py, 0, px, py, r);
   gradient.addColorStop(0, `rgba(255,255,255,${strength})`);
   gradient.addColorStop(0.55, `rgba(255,255,255,${strength * 0.75})`);
@@ -52,72 +68,105 @@ function softBlob(ctx, x, z, radiusMeters, strength) {
   ctx.fill();
 }
 
-function fillRect(ctx, cx, cz, w, d, style) {
-  const [x0, y0] = worldToSplat(cx - w / 2, cz - d / 2);
+function fillRect(ctx, proj, cx, cz, w, d, style) {
+  const [x0, y0] = proj.toPx(cx - w / 2, cz - d / 2);
   ctx.fillStyle = style;
-  ctx.fillRect(x0, y0, metersToPx(w), metersToPx(d));
+  ctx.fillRect(x0, y0, proj.m2px(w), proj.m2px(d));
 }
 
-function paintRuts(ctx, from, to, style) {
+function paintRuts(ctx, proj, from, to, style) {
   const dx = to[0] - from[0];
   const dz = to[1] - from[1];
   const len = Math.hypot(dx, dz) || 1;
   const nx = -dz / len;
   const nz = dx / len;
   for (const side of [-1.4, 1.4]) {
-    strokePolyline(ctx, [[from[0] + nx * side, from[1] + nz * side], [to[0] + nx * side, to[1] + nz * side]], 0.7, style);
+    strokePolyline(ctx, proj, [[from[0] + nx * side, from[1] + nz * side], [to[0] + nx * side, to[1] + nz * side]], 0.7, style);
   }
 }
 
-function paintChannels() {
-  const asphalt = channelCanvas();
-  const dirt = channelCanvas();
-  const rock = channelCanvas();
-  const gravel = channelCanvas();
-  for (const road of ROADS) {
-    if (road.kind === 'asphalt') {
-      strokePolyline(gravel.ctx, road.points, road.width + SHOULDER_EXTRA, 'rgba(255,255,255,0.85)');
-      strokePolyline(asphalt.ctx, road.points, road.width, '#fff');
-    } else {
-      strokePolyline(dirt.ctx, road.points, road.width + 1.6, 'rgba(255,255,255,0.55)');
-      strokePolyline(dirt.ctx, road.points, road.width, 'rgba(255,255,255,0.95)');
+function inBounds(bounds, x, z, pad = 20) {
+  return x >= bounds[0] - pad && x <= bounds[1] + pad && z >= bounds[2] - pad && z <= bounds[3] + pad;
+}
+
+function paintBiomeExtras(mapId, proj, ch) {
+  if (mapId === 'zaura') {
+    strokePolyline(ch.gravel.ctx, proj, [[-95, 48], [85, 48]], 7.5, 'rgba(255,255,255,0.85)');
+    strokePolyline(ch.asphalt.ctx, proj, [[-95, 48], [85, 48]], 5, '#fff');
+    strokePolyline(ch.dirt.ctx, proj, [[-68, -4], [64, -4]], 4.5, 'rgba(255,255,255,0.9)');
+    softBlob(ch.rock.ctx, proj, 65, -70, 26, 0.7);
+  } else if (mapId === 'beit_hillel') {
+    strokePolyline(ch.asphalt.ctx, proj, [[-95, 76], [-45, 62]], 5, '#fff');
+    strokePolyline(ch.gravel.ctx, proj, [[-68, 0], [66, 0]], 5, 'rgba(255,255,255,0.9)');
+    fillRect(ch.gravel.ctx, proj, -8, 22, 46, 20, 'rgba(255,255,255,0.75)');
+    softBlob(ch.rock.ctx, proj, -96, 0, 18, 0.6);
+  } else if (mapId === 'kadita') {
+    strokePolyline(ch.dirt.ctx, proj, [[-62, 42], [72, 42]], 4.5, 'rgba(255,255,255,0.9)');
+    fillRect(ch.gravel.ctx, proj, 14, 18, 18, 12, 'rgba(255,255,255,0.55)');
+    softBlob(ch.rock.ctx, proj, -85, -80, 32, 0.65);
+    softBlob(ch.rock.ctx, proj, 85, -75, 32, 0.65);
+  }
+}
+
+function paintChannels(mapId, bounds, guns) {
+  const proj = makeProjector(bounds);
+  const ch = { asphalt: channelCanvas(), dirt: channelCanvas(), rock: channelCanvas(), gravel: channelCanvas() };
+  if (LEGACY_ROAD_MAPS.has(mapId)) {
+    for (const road of layout.ROADS || []) {
+      if (!road.points?.some(([x, z]) => inBounds(bounds, x, z, 30))) continue;
+      if (road.kind === 'asphalt') {
+        strokePolyline(ch.gravel.ctx, proj, road.points, road.width + SHOULDER_EXTRA, 'rgba(255,255,255,0.85)');
+        strokePolyline(ch.asphalt.ctx, proj, road.points, road.width, '#fff');
+      } else {
+        strokePolyline(ch.dirt.ctx, proj, road.points, road.width + 1.6, 'rgba(255,255,255,0.6)');
+        strokePolyline(ch.dirt.ctx, proj, road.points, road.width, 'rgba(255,255,255,0.95)');
+      }
     }
   }
-  for (const gun of GUNS) {
-    const [x, z] = gun.rear;
-    softBlob(dirt.ctx, x, z + GUN_BODY_OFFSET, 13, 0.95);
-    paintRuts(dirt.ctx, [x, z + 2], [x + 3, z + 26], 'rgba(255,255,255,0.7)');
+  for (const gun of guns) {
+    const gx = gun.x ?? gun.pos?.[0] ?? gun.rear?.[0] ?? 0;
+    const gz = gun.z ?? gun.pos?.[1] ?? gun.rear?.[1] ?? 0;
+    const yaw = gun.yaw ?? 0;
+    const fx = -Math.sin(yaw);
+    const fz = -Math.cos(yaw);
+    softBlob(ch.dirt.ctx, proj, gx, gz, 9.5, 0.92);
+    softBlob(ch.gravel.ctx, proj, gx - fx * 9, gz - fz * 9, 4.5, 0.75);
+    paintRuts(ch.dirt.ctx, proj, [gx - fx * 2, gz - fz * 2], [gx - fx * 18, gz - fz * 18], 'rgba(255,255,255,0.75)');
   }
-  for (const fp of FOOTPRINTS) {
-    if (fp.kind === 'gravel') fillRect(gravel.ctx, fp.x, fp.z, fp.w, fp.d, '#fff');
-    if (fp.region === 'line' && fp.kind !== 'pad') softBlob(dirt.ctx, fp.x, fp.z, Math.max(fp.w, fp.d) * 0.9 + 3, 0.6);
-    if (fp.region !== 'line' && fp.kind === 'building') fillRect(gravel.ctx, fp.x, fp.z, fp.w + 4, fp.d + 4, 'rgba(255,255,255,0.55)');
+  for (const fp of layout.FOOTPRINTS || []) {
+    if (fp.region && fp.region !== mapId) continue;
+    if (!inBounds(bounds, fp.x, fp.z, 10)) continue;
+    if (fp.kind === 'gravel') fillRect(ch.gravel.ctx, proj, fp.x, fp.z, fp.w, fp.d, '#fff');
+    else if (fp.kind === 'building') fillRect(ch.gravel.ctx, proj, fp.x, fp.z, fp.w + 4, fp.d + 4, 'rgba(255,255,255,0.55)');
+    else softBlob(ch.dirt.ctx, proj, fp.x, fp.z, Math.max(fp.w, fp.d) * 0.7 + 2, 0.55);
   }
-  softBlob(dirt.ctx, 4, -240, 34, 0.7);
-  softBlob(dirt.ctx, -56, -262, 12, 0.9);
-  softBlob(dirt.ctx, -22, -277, 11, 0.9);
-  softBlob(dirt.ctx, 58, -286, 12, 0.9);
-  softBlob(dirt.ctx, -54, -236, 6, 0.7);
-  softBlob(dirt.ctx, 68, 0, 26, 0.55);
-  softBlob(dirt.ctx, 0, -64, 30, 0.35);
-  fillRect(gravel.ctx, -110, -179, 112, 66, 'rgba(255,255,255,0.45)');
-  fillRect(gravel.ctx, 0, 0, 70, 70, 'rgba(255,255,255,0.3)');
-  fillRect(gravel.ctx, 0, -392, 48, 40, 'rgba(255,255,255,0.6)');
-  const random = createSeededRandom(404);
+  paintBiomeExtras(mapId, proj, ch);
+  const random = createSeededRandom(404 + mapId.length * 37);
+  const w = bounds[1] - bounds[0];
+  const d = bounds[3] - bounds[2];
   for (let i = 0; i < ROCK_PATCH_COUNT; i++) {
-    const x = TERRAIN_EXTENT.minX + random() * extentX;
-    const z = TERRAIN_EXTENT.minZ + random() * (DESERT_EDGE_Z.end - TERRAIN_EXTENT.minZ);
-    softBlob(rock.ctx, x, z, 4 + random() * 10, 0.55 + random() * 0.4);
+    const rx = bounds[0] + random() * w;
+    const rz = bounds[2] + random() * d;
+    if (Math.hypot(rx, rz - 38) < 22) continue;
+    if (Math.hypot(rx + 54, rz + 240) < 22) continue;
+    softBlob(ch.rock.ctx, proj, rx, rz, 4 + random() * 9, 0.45 + random() * 0.35);
   }
-  for (const hill of FEATURES.hills) softBlob(rock.ctx, hill.x, hill.z, hill.radius * 0.7, hill.z < DESERT_EDGE_Z.end ? 0.75 : 0.35);
-  for (const plateau of FEATURES.plateaus) softBlob(rock.ctx, plateau.x, plateau.z, plateau.radius + plateau.falloff, 0.6);
-  for (const wadi of FEATURES.wadis) strokePolyline(gravel.ctx, wadi.points, wadi.halfWidth * 1.6, 'rgba(255,255,255,0.8)');
-  softBlob(rock.ctx, 0, -392, 30, 0.4);
-  return { asphalt, dirt, rock, gravel };
+  return ch;
 }
 
-export function createSplat() {
-  const channels = paintChannels();
+export function createSplat(mapId, guns = []) {
+  let rawMapId = mapId;
+  let rawGuns = guns;
+  if (Array.isArray(mapId)) {
+    rawGuns = mapId;
+    rawMapId = undefined;
+  }
+  const resolvedId = resolveGroundMapId(rawMapId);
+  lastSplatMapId = resolvedId;
+  const gunList = Array.isArray(rawGuns) && rawGuns.length ? rawGuns : (layout.MAP_DEFS?.[resolvedId]?.guns || []);
+  const biome = MAP_BIOMES[resolvedId] || MAP_BIOMES.shivta;
+  const bounds = biome.bounds;
+  const channels = paintChannels(resolvedId, bounds, gunList);
   const read = (c) => c.ctx.getImageData(0, 0, SPLAT_SIZE, SPLAT_SIZE).data;
   const r = read(channels.asphalt);
   const g = read(channels.dirt);
@@ -134,20 +183,13 @@ export function createSplat() {
   texture.magFilter = THREE.LinearFilter;
   texture.minFilter = THREE.LinearMipmapLinearFilter;
   texture.generateMipmaps = true;
+  texture.userData.mapId = resolvedId;
   texture.needsUpdate = true;
-  return { texture, data, size: SPLAT_SIZE };
+  return { texture, data, size: SPLAT_SIZE, bounds };
 }
 
 const TERRAIN_UNIFORMS_GLSL = `
 const vec3 LUMA = vec3(0.2126, 0.7152, 0.0722);
-const vec3 GOLAN_GRASS_TINT = vec3(2.6, 2.5, 4.0);
-const vec3 GOLAN_STRAW_TINT = vec3(0.86, 0.74, 0.52);
-const float GOLAN_DESATURATION = 0.25;
-const vec3 GOLAN_DIRT_TINT = vec3(3.4, 3.9, 3.65);
-const vec3 GOLAN_GRAVEL_TINT = vec3(3.4, 2.6, 1.8);
-const float GOLAN_ROCK_GAIN = 3.8;
-const float ASPHALT_GAIN = 0.75;
-const float ASPHALT_LIFT = 0.06;
 uniform sampler2D tSplat;
 uniform sampler2D tSand;
 uniform sampler2D tGrass;
@@ -155,7 +197,12 @@ uniform sampler2D tStraw;
 uniform sampler2D tDirt;
 uniform sampler2D tRock;
 uniform vec4 splatRect;
-uniform vec2 desertEdge;
+uniform vec3 uDry;
+uniform vec3 uGrass;
+uniform vec3 uDirt;
+uniform vec3 uRock;
+uniform vec3 uRoad;
+uniform vec3 uConcrete;
 varying vec3 vTerrainPos;
 varying vec3 vTerrainNormal;
 `;
@@ -165,39 +212,44 @@ vec2 wp = vTerrainPos.xz;
 vec4 sp = texture2D(tSplat, (wp - splatRect.xy) / splatRect.zw);
 float patchN = 0.5 + 0.25 * sin(wp.x * 0.061 + sin(wp.y * 0.047) * 2.3) + 0.25 * sin(wp.y * 0.053 + sin(wp.x * 0.029) * 1.9);
 float macro = 0.5 + 0.5 * sin(wp.x * 0.013 + 1.7 + sin(wp.y * 0.009) * 2.0) * sin(wp.y * 0.011 - 0.6);
-vec3 sand = texture2D(tSand, wp * 0.15).rgb * mix(0.88, 1.08, macro);
-vec3 grass = texture2D(tGrass, wp * 0.19).rgb * GOLAN_GRASS_TINT;
-vec3 straw = texture2D(tStraw, wp * 0.17).rgb * GOLAN_STRAW_TINT;
-vec3 golan = mix(grass, straw, smoothstep(0.3, 0.7, patchN)) * mix(0.8, 1.1, macro);
-golan = mix(golan, vec3(dot(golan, LUMA)), GOLAN_DESATURATION);
-vec3 dirt = texture2D(tDirt, wp * 0.2).rgb;
-vec3 rockTex = texture2D(tRock, wp * 0.11).rgb;
-float desert = smoothstep(desertEdge.y, desertEdge.x, wp.y);
+float dStraw = clamp(0.76 + 0.45 * dot(texture2D(tStraw, wp * 0.17).rgb, LUMA), 0.76, 1.22);
+float dGrass = clamp(0.76 + 0.70 * dot(texture2D(tGrass, wp * 0.19).rgb, LUMA), 0.76, 1.22);
+float dDirt = clamp(0.74 + 0.85 * dot(texture2D(tDirt, wp * 0.20).rgb, LUMA), 0.74, 1.22);
+float dRock = clamp(0.72 + 0.90 * dot(texture2D(tRock, wp * 0.11).rgb, LUMA), 0.72, 1.22);
+float dSand = clamp(0.78 + 0.40 * dot(texture2D(tSand, wp * 0.15).rgb, LUMA), 0.78, 1.22);
+vec3 baseCol = mix(uGrass * dGrass, uDry * dStraw * dSand, smoothstep(0.25, 0.75, patchN)) * mix(0.88, 1.12, macro);
 float slope = 1.0 - clamp(vTerrainNormal.y, 0.0, 1.0);
-vec3 groundCol = mix(golan, sand, desert);
-groundCol = mix(groundCol, mix(dirt * GOLAN_DIRT_TINT, sand * vec3(0.84, 0.77, 0.66), desert), clamp(sp.g + smoothstep(0.12, 0.3, slope) * 0.6, 0.0, 1.0));
-vec3 gravelCol = mix(vec3(dot(dirt, LUMA)) * GOLAN_GRAVEL_TINT, sand * vec3(0.95, 0.85, 0.7), desert);
+float dirtW = clamp(sp.g + smoothstep(0.14, 0.34, slope) * 0.65, 0.0, 1.0);
+vec3 groundCol = mix(baseCol, uDirt * dDirt, dirtW);
+vec3 gravelCol = mix(uConcrete, uDirt, 0.35) * dDirt;
 groundCol = mix(groundCol, gravelCol, sp.a * 0.85);
-float rockW = clamp(sp.b * 0.9 + smoothstep(0.22, 0.45, slope) * 0.7, 0.0, 1.0);
-groundCol = mix(groundCol, mix(rockTex * GOLAN_ROCK_GAIN, rockTex * vec3(1.9, 1.75, 1.45), desert), rockW);
-float elev = smoothstep(2.5, 13.0, vTerrainPos.y) * (1.0 - desert);
-groundCol = mix(groundCol, mix(rockTex * GOLAN_ROCK_GAIN, golan * 0.85, 0.55), elev * 0.7);
-vec3 asphaltCol = vec3(dot(rockTex, vec3(0.33))) * ASPHALT_GAIN + ASPHALT_LIFT;
-groundCol = mix(groundCol, asphaltCol, sp.r);
+float rockW = clamp(sp.b * 0.85 + smoothstep(0.28, 0.5, slope) * 0.75, 0.0, 1.0);
+groundCol = mix(groundCol, uRock * dRock, rockW);
+groundCol = mix(groundCol, uRoad * dDirt, sp.r);
 diffuseColor.rgb *= groundCol;
 `;
 
-export function createTerrainMaterial(splatTexture) {
-  const material = new THREE.MeshLambertMaterial({ color: 0xffffff });
+export function createTerrainMaterial(splatTexture, mapId) {
+  const tex = splatTexture?.isTexture ? splatTexture : (splatTexture?.texture || splatTexture);
+  const resolvedId = resolveGroundMapId(mapId, tex);
+  const biome = MAP_BIOMES[resolvedId] || MAP_BIOMES.shivta;
+  const [minX, maxX, minZ, maxZ] = biome.bounds;
+  const p = biome.palette;
+  const material = new THREE.MeshLambertMaterial({ color: 0xffffff, vertexColors: true });
   const uniforms = {
-    tSplat: { value: splatTexture },
+    tSplat: { value: tex },
     tSand: { value: loadWorldTexture('dense_sand') },
     tGrass: { value: loadWorldTexture('sparse_grass') },
     tStraw: { value: loadWorldTexture('withered_grass') },
     tDirt: { value: loadWorldTexture('road_damaged') },
     tRock: { value: loadWorldTexture('dark_rock_02') },
-    splatRect: { value: new THREE.Vector4(TERRAIN_EXTENT.minX, TERRAIN_EXTENT.minZ, extentX, extentZ) },
-    desertEdge: { value: new THREE.Vector2(DESERT_EDGE_Z.start, DESERT_EDGE_Z.end) }
+    splatRect: { value: new THREE.Vector4(minX, minZ, maxX - minX, maxZ - minZ) },
+    uDry: { value: new THREE.Color(p.dry) },
+    uGrass: { value: new THREE.Color(p.grass) },
+    uDirt: { value: new THREE.Color(p.dirt) },
+    uRock: { value: new THREE.Color(p.rock) },
+    uRoad: { value: new THREE.Color(p.road) },
+    uConcrete: { value: new THREE.Color(p.concrete) }
   };
   material.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
@@ -208,6 +260,6 @@ export function createTerrainMaterial(splatTexture) {
       .replace('#include <common>', `#include <common>\n${TERRAIN_UNIFORMS_GLSL}`)
       .replace('#include <map_fragment>', TERRAIN_COLOR_GLSL);
   };
-  material.customProgramCacheKey = () => 'terrain-splat-v3';
+  material.customProgramCacheKey = () => `terrain-splat-v4-${resolvedId}`;
   return material;
 }

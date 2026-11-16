@@ -3,7 +3,8 @@ import { CHAPTERS, ACHIEVEMENTS, RADIO_LINES } from './campaign-data.js';
 import { MISSIONS_CH1_TO_3 } from './missions-ch1-3.js';
 import { MISSIONS_CH4_TO_7 } from './missions-ch4-7.js';
 import { save, player, runtime, addScoreAndMoney, advanceDay, writeSave, emit, on } from './state.js';
-import { completeMission } from './missions.js';
+import { completeMission, getMissionMapId } from './missions.js';
+import { getCurrentMapId, mountMapSync } from './world.js';
 import {
   createObjectiveState, getActiveMissionRunner, setActiveMissionRunner, setMissionCompleteHandler,
   completeActiveMission, resetActiveMissionObjectives, resetObjectiveTelemetry, updateObjectiveTelemetry,
@@ -14,6 +15,7 @@ import { createCampaignUi } from './campaign-ui.js';
 export { getCampaignObjectiveState, updateCampaignObjectives, handleCampaignInteract, onCampaignArtilleryImpact };
 
 export const ALL_CAMPAIGN_MISSIONS = { ...MISSIONS, ...MISSIONS_CH1_TO_3, ...MISSIONS_CH4_TO_7 };
+for (const m of Object.values(ALL_CAMPAIGN_MISSIONS)) if (m) m.mapId = getMissionMapId(m);
 
 const M1_IDS = new Set(['base', 'range', 'doher_salvo', 'roem_rapid', 'rokhash_recon', 'mafik_radar', 'patrol']);
 const CHAIN = ['ch1_bakum', 'ch2_tironut', 'ch3_mikzoi', 'ch4_mitkadem', 'ch5_kav', 'ch6_mefakzim', 'ch7_shihrur'];
@@ -97,11 +99,7 @@ function syncHudBadges() {
 
 function reconcileCampaignProgression(persist = false) {
   ensureCampaignSave();
-  const prevChapter = save.chapterId;
-  const prevRank = save.rankId;
-  const prevDay = save.day;
-  const prevActive = save.activeMissionId;
-  const prevDischarged = save.discharged;
+  const prev = [save.chapterId, save.rankId, save.day, save.activeMissionId, save.discharged];
   for (let i = 0; i < CHAIN.length - 1; i++) {
     const cid = CHAIN[i];
     const nextCid = CHAIN[i + 1];
@@ -117,11 +115,7 @@ function reconcileCampaignProgression(persist = false) {
     if (save.chapterId === cid) save.chapterId = targetCid;
     if (nextCh && save.chapterId === 'ch6_mefakzim' && save.commandCourseSkipped) save.chapterId = 'ch7_shihrur';
   }
-  if (save.completed?.ch7_m6_bakum_discharge) {
-    save.day = Math.max(save.day, 840);
-    save.discharged = true;
-    save.rankId = 'samar';
-  }
+  if (save.completed?.ch7_m6_bakum_discharge) { save.day = Math.max(save.day, 840); save.discharged = true; save.rankId = 'samar'; }
   const chMissions = getChapterMissions(save.chapterId);
   if (!chMissions.some((m) => m.id === save.activeMissionId)) {
     const pending = chMissions.find((m) => !save.completed?.[m.id]) || chMissions[0];
@@ -129,9 +123,9 @@ function reconcileCampaignProgression(persist = false) {
   }
   const achUnlocked = checkAndUnlockAchievements(persist);
   syncHudBadges();
-  const changed = save.chapterId !== prevChapter || save.rankId !== prevRank || save.day !== prevDay || save.activeMissionId !== prevActive || save.discharged !== prevDischarged;
+  const changed = prev[0] !== save.chapterId || prev[1] !== save.rankId || prev[2] !== save.day || prev[3] !== save.activeMissionId || prev[4] !== save.discharged;
   if (persist && changed && !achUnlocked) writeSave();
-  if (save.chapterId !== prevChapter) {
+  if (save.chapterId !== prev[0]) {
     const ch = CHAPTERS.find((c) => c.id === save.chapterId);
     emit(evName('CHAPTER_CHANGED', 'campaign:chapter_changed'), { chapterId: save.chapterId, title: ch?.title || '' });
   }
@@ -205,6 +199,8 @@ export function startCampaignMission(missionId) {
   if (m.chapterId && isChapterUnlocked(m.chapterId)) save.chapterId = m.chapterId;
   if (typeof m.forceTimeOfDay === 'number') runtime.timeOfDay = m.forceTimeOfDay;
   player.carryingType = null;
+  const targetMapId = getMissionMapId(m);
+  if (targetMapId && getCurrentMapId() !== targetMapId) mountMapSync(targetMapId, m.startSpawn);
   const runner = M1_IDS.has(missionId) ? null : { mission: m, states: (m.objectives || []).map(createObjectiveState), completed: false };
   setActiveMissionRunner(runner);
   runtime.stealthAlertTimer = 0;
@@ -225,6 +221,7 @@ export function initCampaign(missionsApi = null) {
   boundMissionsApi = missionsApi;
   resetObjectiveTelemetry();
   Object.assign(MISSIONS, MISSIONS_CH1_TO_3, MISSIONS_CH4_TO_7);
+  for (const m of Object.values(MISSIONS)) if (m) m.mapId = getMissionMapId(m);
   ensureCampaignSave();
   campaignUi.ensureCampaignModalDOM();
   reconcileCampaignProgression(false);
@@ -236,10 +233,7 @@ export function initCampaign(missionsApi = null) {
         if (m.targetDay) save.day = Math.max(save.day, m.targetDay);
         else if ((m.daysAdvance || 1) > 1) advanceDay(m.daysAdvance - 1);
       }
-      if (m?.unlocks?.ceremony) {
-        save.ceremonies[m.unlocks.ceremony] = true;
-        emit(EVENTS.CEREMONY_UNLOCKED, { type: m.unlocks.ceremony, title: m.title });
-      }
+      if (m?.unlocks?.ceremony) { save.ceremonies[m.unlocks.ceremony] = true; emit(EVENTS.CEREMONY_UNLOCKED, { type: m.unlocks.ceremony, title: m.title }); }
       if (m?.unlocks?.swearingIn) save.ceremonies.swearingIn = true;
       const isDischarge = p?.missionId === 'ch7_m6_bakum_discharge';
       const nextM = isDischarge ? null : getChapterMissions(save.chapterId).find((x) => !save.completed?.[x.id]);

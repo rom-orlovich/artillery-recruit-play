@@ -1,4 +1,5 @@
 import { save, player, runtime } from './state.js';
+import { getCurrentMapId } from './maps/map-registry.js';
 import {
   getMapImage,
   mapToImage,
@@ -21,7 +22,6 @@ const MAX_DPR = 2.5;
 
 let unit = 1;
 let cssScale = 1;
-
 let canvas = null;
 let ctx = null;
 
@@ -39,7 +39,7 @@ export function initMinimap(canvasEl) {
     wrap.dataset.mapBound = '1';
     wrap.addEventListener('click', () => openFullMap());
   }
-  getMapImage();
+  getMapImage(getCurrentMapId());
 }
 
 function worldToMini(wx, wz) {
@@ -63,15 +63,8 @@ function dot(wx, wz, radius, fill, stroke) {
   const [x, y] = worldToMini(wx, wz);
   ctx.beginPath();
   ctx.arc(x, y, radius * unit, 0, Math.PI * 2);
-  if (fill) {
-    ctx.fillStyle = fill;
-    ctx.fill();
-  }
-  if (stroke) {
-    ctx.strokeStyle = stroke;
-    ctx.lineWidth = 1.6 * unit;
-    ctx.stroke();
-  }
+  if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+  if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 1.6 * unit; ctx.stroke(); }
 }
 
 function drawDashedRoute(x0, y0, x1, y1) {
@@ -96,8 +89,7 @@ function drawDashedRoute(x0, y0, x1, y1) {
 function edgePoint(angle, w, h, inset) {
   const wrap = canvas.parentElement || canvas;
   const br = parseFloat(getComputedStyle(wrap).borderTopLeftRadius) || 0;
-  const circular = br >= (canvas.clientWidth || w) * 0.42;
-  if (circular) {
+  if (br >= (canvas.clientWidth || w) * 0.42) {
     const r = w / 2 - inset;
     return [w / 2 + Math.cos(angle) * r, h / 2 + Math.sin(angle) * r];
   }
@@ -133,10 +125,9 @@ function drawObjective(pulse) {
     setDataset(canvas, 'edgeX', '');
     setDataset(canvas, 'edgeY', '');
     drawDashedRoute(w / 2, h / 2, x, y);
-    const pulseR = ringBase + pulse * 3.5 * cssScale;
     ctx.save();
     ctx.beginPath();
-    ctx.arc(x, y, pulseR, 0, Math.PI * 2);
+    ctx.arc(x, y, ringBase + pulse * 3.5 * cssScale, 0, Math.PI * 2);
     ctx.fillStyle = 'rgba(255, 136, 0, 0.24)';
     ctx.fill();
     ctx.lineWidth = 2.6 * cssScale;
@@ -145,9 +136,8 @@ function drawObjective(pulse) {
     ctx.lineWidth = 1.8 * cssScale;
     ctx.strokeStyle = '#ff9f1c';
     ctx.stroke();
-    const dotR = Math.max(3.6 * cssScale, 4.2 * unit);
     ctx.beginPath();
-    ctx.arc(x, y, dotR, 0, Math.PI * 2);
+    ctx.arc(x, y, Math.max(3.6 * cssScale, 4.2 * unit), 0, Math.PI * 2);
     ctx.fillStyle = '#ff6a00';
     ctx.fill();
     ctx.lineWidth = 1.4 * cssScale;
@@ -159,8 +149,7 @@ function drawObjective(pulse) {
 
   setDataset(canvas, 'objInside', '0');
   const angle = Math.atan2(y - h / 2, x - w / 2);
-  const edgeInset = 11 * cssScale;
-  const [ex, ey] = edgePoint(angle, w, h, edgeInset);
+  const [ex, ey] = edgePoint(angle, w, h, 11 * cssScale);
   setDataset(canvas, 'edgeX', ex.toFixed(1));
   setDataset(canvas, 'edgeY', ey.toFixed(1));
   drawDashedRoute(w / 2, h / 2, ex, ey);
@@ -238,14 +227,12 @@ function drawEntities(entitiesApi, pulse) {
   for (const drone of entitiesApi?.drones || []) {
     const pos = isEntityActive(drone) && extractEntityPos(drone);
     if (!pos) continue;
-    const dist = Math.hypot(pos.x - player.pos.x, pos.z - player.pos.z);
-    if (dist > MINI_RADIUS) continue;
+    if (Math.hypot(pos.x - player.pos.x, pos.z - player.pos.z) > MINI_RADIUS) continue;
     const [dx, dy] = worldToMini(pos.x, pos.z);
-    const isRecon = drone.enemyType === 'recon_drone';
     if (mafikAlert) {
       ctx.save();
       ctx.setLineDash([2, 3]);
-      ctx.strokeStyle = isRecon ? 'rgba(255, 170, 34, 0.5)' : 'rgba(255, 90, 90, 0.5)';
+      ctx.strokeStyle = drone.enemyType === 'recon_drone' ? 'rgba(255, 170, 34, 0.5)' : 'rgba(255, 90, 90, 0.5)';
       ctx.beginPath();
       ctx.moveTo(canvas.width / 2, canvas.height / 2);
       ctx.lineTo(dx, dy);
@@ -267,11 +254,22 @@ export function drawMinimap(entitiesApi) {
   const w = canvas.width;
   const h = canvas.height;
   const pulse = 0.5 + 0.5 * Math.sin((performance.now() / 1000) * 6);
-  const [ix, iy] = mapToImage(player.pos.x, player.pos.z);
+  const mapId = getCurrentMapId();
+  const img = getMapImage(mapId);
+  const [ix, iy] = mapToImage(player.pos.x, player.pos.z, mapId);
   const src = VIEW_METERS * MAP_PX_PER_M;
+  const sx0 = ix - src / 2;
+  const sy0 = iy - src / 2;
+  const cx0 = Math.max(0, sx0);
+  const cy0 = Math.max(0, sy0);
+  const cx1 = Math.min(img.width, sx0 + src);
+  const cy1 = Math.min(img.height, sy0 + src);
   ctx.fillStyle = '#20251a';
   ctx.fillRect(0, 0, w, h);
-  ctx.drawImage(getMapImage(), ix - src / 2, iy - src / 2, src, src, 0, 0, w, h);
+  if (cx1 > cx0 && cy1 > cy0) {
+    const k = w / src;
+    ctx.drawImage(img, cx0, cy0, cx1 - cx0, cy1 - cy0, (cx0 - sx0) * k, (cy0 - sy0) * k, (cx1 - cx0) * k, (cy1 - cy0) * k);
+  }
   drawEntities(entitiesApi, pulse);
   drawMissionMarkers();
   drawObjective(pulse);

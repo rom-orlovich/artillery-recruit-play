@@ -1,46 +1,44 @@
 import * as THREE from 'three';
-import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { composeMatrix } from './world-kit.js';
 import { POSE_CLIPS, buildBoxSoldierGeometry, loadSoldierAssets } from './world-soldier-mesh.js';
 import { whenDohersReady } from './world-vehicles.js';
 import { snapCrewSpawns } from './world-soldier-snap.js';
-
-const POOL_SIZE = 4;
-const NEAR_RADIUS_SQ = 900;
-const NEAR_DETAIL_SQ = 1600;
-const REASSIGN_INTERVAL = 0.5;
-const farMaterial = new THREE.MeshLambertMaterial({ vertexColors: true });
+import {
+  REASSIGN_INTERVAL, MOVE_REASSIGN_SQ, loadWalkClip, finishBucketMesh,
+  makeFarMesh, applySlotPose, createPoolSlots, disposePoolSlots, reassignPool
+} from './world-soldier-pool.js';
 
 const spawns = [];
-const buckets = [];
 const pool = [];
-const nearestIdx = [-1, -1, -1, -1];
-const nearestDist = [0, 0, 0, 0];
-const assignedTo = [-1, -1, -1, -1];
-const slotReused = [false, false, false, false];
+const tmpPos = new THREE.Vector3();
+const tmpQuat = new THREE.Quaternion();
+const tmpEuler = new THREE.Euler(0, 0, 0, 'YXZ');
+const tmpScale = new THREE.Vector3(1, 1, 1);
 
+let farMesh = null;
 let buildId = 0;
 let reassignTimer = 0;
 let lastX = Infinity;
 let lastZ = Infinity;
 
+function pickFirstGeometry(map) {
+  if (!map) return null;
+  for (const key in map) {
+    if (map[key]) return map[key];
+  }
+  return null;
+}
+
 export function resetSoldiers() {
   buildId++;
   spawns.length = 0;
-  for (const b of buckets) {
-    for (const mesh of [b.nearMesh, b.farMesh]) {
-      if (mesh.parent) mesh.parent.remove(mesh);
-      if (mesh.geometry?.userData?.boxFallback) mesh.geometry.dispose();
-      mesh.dispose();
-    }
+  if (farMesh) {
+    if (farMesh.parent) farMesh.parent.remove(farMesh);
+    if (farMesh.geometry?.userData?.boxFallback) farMesh.geometry.dispose();
+    farMesh.dispose();
+    farMesh = null;
   }
-  buckets.length = 0;
-  for (const slot of pool) {
-    slot.mixer.stopAllAction();
-    slot.mixer.uncacheRoot(slot.root);
-    if (slot.root.parent) slot.root.parent.remove(slot.root);
-  }
-  pool.length = 0;
+  disposePoolSlots(pool);
   reassignTimer = 0;
   lastX = Infinity;
   lastZ = Infinity;
@@ -49,179 +47,108 @@ export function resetSoldiers() {
 export function registerSoldier(x, y, z, ry = 0, pose = 'stand', crewOf = null, slot = null) {
   const key = POSE_CLIPS[pose] ? pose : 'stand';
   spawns.push({
-    x, y, origY: y, z, ry, pose: key, crewOf: crewOf ?? null, slot: slot ?? null,
+    x, y, origY: y, z, ry, pose: key, actionPose: key, crewOf: crewOf ?? null, slot: slot ?? null,
+    name: '', rank: '', role: '',
     matrix: composeMatrix(x, y, z, 0, ry, 0),
-    activeMesh: null, activeIndex: -1, inPool: false, timeOffset: Math.random()
+    activeMesh: null, activeIndex: -1, inPool: false, poolSlot: -1, dirty: false, timeOffset: Math.random()
   });
 }
 
 export function getSoldierSpawns() {
-  return spawns.map(({ x, y, z, ry, pose, crewOf }) => ({ x, y, z, ry, pose, crewOf }));
+  return spawns.map(({ x, y, z, ry, pose, crewOf, name, rank, role }) => ({ x, y, z, ry, pose, crewOf, name, rank, role }));
 }
 
-function finishBucketMesh(mesh, count) {
-  mesh.count = count;
-  mesh.visible = count > 0;
-  if (count > 0) {
-    mesh.instanceMatrix.needsUpdate = true;
-    mesh.computeBoundingSphere();
-  }
+export function getRawSoldierSpawn(index) {
+  return spawns[index] || null;
 }
 
-function makeBucketMesh(name, geom, count, parent) {
-  const mesh = new THREE.InstancedMesh(geom, farMaterial, count);
-  mesh.name = name;
-  mesh.castShadow = false;
-  mesh.receiveShadow = true;
-  parent.add(mesh);
-  return mesh;
+export function setSoldierIdentity(index, name, rank, role) {
+  const s = spawns[index];
+  if (!s) return;
+  s.name = name || '';
+  s.rank = rank || '';
+  s.role = role || '';
+}
+
+export function syncSoldierTransform(index, x, y, z, ry, actionPose) {
+  const s = spawns[index];
+  if (!s) return;
+  s.x = x;
+  s.y = y;
+  s.z = z;
+  s.ry = ry;
+  if (actionPose) s.actionPose = actionPose;
+  s.dirty = true;
 }
 
 export function initSoldiers(scene, regionOf = null) {
   if (!spawns.length) return;
-  const byBucket = new Map();
-  for (const spawn of spawns) {
-    const parent = (typeof regionOf === 'function' ? regionOf(spawn.x, spawn.z) : null) || scene;
-    const key = `${parent.uuid}:${spawn.pose}`;
-    if (!byBucket.has(key)) byBucket.set(key, { parent, pose: spawn.pose, list: [] });
-    byBucket.get(key).list.push(spawn);
+  const resolveParent = typeof regionOf === 'function' ? regionOf : () => scene;
+  const boxGeom = buildBoxSoldierGeometry('stand');
+  boxGeom.userData.boxFallback = true;
+  farMesh = makeFarMesh('far-soldiers-all', boxGeom, spawns.length, scene);
+  for (let i = 0; i < spawns.length; i++) {
+    spawns[i].activeIndex = i;
+    spawns[i].activeMesh = farMesh;
+    farMesh.setMatrixAt(i, spawns[i].matrix);
   }
-  const boxGeoms = {};
-  for (const { parent, pose, list } of byBucket.values()) {
-    if (!boxGeoms[pose]) {
-      boxGeoms[pose] = buildBoxSoldierGeometry(pose);
-      boxGeoms[pose].userData.boxFallback = true;
-    }
-    const geom = boxGeoms[pose];
-    const nearMesh = makeBucketMesh(`soldiers-${pose}`, geom, list.length, parent);
-    finishBucketMesh(nearMesh, 0);
-    const farMesh = makeBucketMesh(`far-soldiers-${pose}`, geom, list.length, parent);
-    for (let i = 0; i < list.length; i++) {
-      list[i].activeIndex = i;
-      list[i].activeMesh = farMesh;
-      farMesh.setMatrixAt(i, list[i].matrix);
-    }
-    finishBucketMesh(farMesh, list.length);
-    buckets.push({ pose, list, nearMesh, farMesh });
-  }
+  finishBucketMesh(farMesh, spawns.length);
+
   const myBuildId = buildId;
   const assetsPromise = loadSoldierAssets();
-  assetsPromise.then((assets) => {
+  Promise.all([assetsPromise, loadWalkClip()]).then(([assets, walkClip]) => {
     if (!assets || myBuildId !== buildId) return;
-    for (const b of buckets) {
-      const nearGeom = assets.poseGeometries[b.pose];
-      const farGeom = assets.farPoseGeometries[b.pose] || nearGeom;
-      if (nearGeom) { b.nearMesh.geometry = nearGeom; b.nearMesh.computeBoundingSphere(); }
-      if (farGeom) { b.farMesh.geometry = farGeom; b.farMesh.computeBoundingSphere(); }
+    const farGeom = assets.farPoseGeometries?.stand || pickFirstGeometry(assets.farPoseGeometries) ||
+      assets.poseGeometries?.stand || pickFirstGeometry(assets.poseGeometries);
+    if (farGeom && farMesh) {
+      farGeom.userData.shared = true;
+      farMesh.geometry = farGeom;
+      farMesh.computeBoundingSphere();
+      boxGeom.dispose();
     }
-    const used = new Set(buckets.flatMap((b) => [b.nearMesh.geometry, b.farMesh.geometry]));
-    for (const g of Object.values(boxGeoms)) if (!used.has(g)) g.dispose();
-    for (let i = 0; i < POOL_SIZE; i++) {
-      const root = SkeletonUtils.clone(assets.template);
-      root.visible = false;
-      root.traverse((c) => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
-      scene.add(root);
-      const mixer = new THREE.AnimationMixer(root);
-      const actions = {};
-      for (const [pose, clip] of Object.entries(assets.clips)) if (clip) actions[pose] = mixer.clipAction(clip);
-      pool.push({ root, mixer, actions, activeAction: null, spawnIndex: -1 });
-    }
+    createPoolSlots(pool, assets, walkClip, scene);
     reassignTimer = 0;
     lastX = Infinity;
   });
   Promise.all([assetsPromise, whenDohersReady()]).then(() => {
     if (myBuildId !== buildId) return;
-    snapCrewSpawns(spawns, pool, regionOf, scene);
+    snapCrewSpawns(spawns, pool, resolveParent, scene);
+    reassignTimer = 0;
+    lastX = Infinity;
   });
 }
 
-function reassignPool(x, z) {
-  nearestIdx.fill(-1);
-  nearestDist.fill(NEAR_RADIUS_SQ);
-  for (let i = 0; i < spawns.length; i++) {
-    const dx = spawns[i].x - x;
-    const dz = spawns[i].z - z;
-    const d2 = dx * dx + dz * dz;
-    if (d2 >= nearestDist[POOL_SIZE - 1]) continue;
-    let k = POOL_SIZE - 1;
-    while (k > 0 && d2 < nearestDist[k - 1]) {
-      nearestDist[k] = nearestDist[k - 1];
-      nearestIdx[k] = nearestIdx[k - 1];
-      k--;
-    }
-    nearestDist[k] = d2;
-    nearestIdx[k] = i;
-  }
-  assignedTo.fill(-1);
-  slotReused.fill(false);
-  for (let s = 0; s < pool.length; s++) {
-    const slot = pool[s];
-    if (slot.spawnIndex === -1) continue;
-    const found = nearestIdx.indexOf(slot.spawnIndex);
-    if (found !== -1) {
-      assignedTo[found] = s;
-      slotReused[s] = true;
-    } else {
-      spawns[slot.spawnIndex].inPool = false;
-      slot.spawnIndex = -1;
-      slot.root.visible = false;
-      if (slot.activeAction) { slot.activeAction.stop(); slot.activeAction = null; }
-    }
-  }
-  for (let k = 0; k < POOL_SIZE; k++) {
-    const idx = nearestIdx[k];
-    if (idx === -1 || assignedTo[k] !== -1) continue;
-    const s = slotReused.indexOf(false);
-    if (s === -1) break;
-    slotReused[s] = true;
-    const slot = pool[s];
-    const spawn = spawns[idx];
-    slot.spawnIndex = idx;
-    spawn.inPool = true;
-    slot.root.position.set(spawn.x, spawn.y, spawn.z);
-    slot.root.rotation.set(0, spawn.ry, 0);
-    slot.root.visible = true;
-    const action = slot.actions[spawn.pose] || slot.actions.stand;
-    if (action) {
-      action.reset();
-      const dur = action.getClip().duration;
-      if (dur > 0) action.time = spawn.timeOffset * dur;
-      action.play();
-      slot.mixer.update(0);
-    }
-    slot.activeAction = action || null;
-  }
-  for (const b of buckets) {
-    let nearCount = 0;
-    let farCount = 0;
-    for (const s of b.list) {
-      if (s.inPool) { s.activeMesh = null; s.activeIndex = -1; continue; }
-      const dx = s.x - x;
-      const dz = s.z - z;
-      if (dx * dx + dz * dz <= NEAR_DETAIL_SQ) {
-        b.nearMesh.setMatrixAt(nearCount, s.matrix);
-        s.activeMesh = b.nearMesh;
-        s.activeIndex = nearCount++;
-      } else {
-        b.farMesh.setMatrixAt(farCount, s.matrix);
-        s.activeMesh = b.farMesh;
-        s.activeIndex = farCount++;
-      }
-    }
-    finishBucketMesh(b.nearMesh, nearCount);
-    finishBucketMesh(b.farMesh, farCount);
-  }
-}
-
 export function updateSoldiers(dt, x, z) {
+  let farNeedsUpdate = false;
+  for (let i = 0; i < spawns.length; i++) {
+    const s = spawns[i];
+    if (!s.dirty) continue;
+    s.dirty = false;
+    tmpEuler.set(0, s.ry, 0);
+    tmpQuat.setFromEuler(tmpEuler);
+    tmpPos.set(s.x, s.y, s.z);
+    s.matrix.compose(tmpPos, tmpQuat, tmpScale);
+    if (s.inPool && s.poolSlot >= 0) {
+      const slot = pool[s.poolSlot];
+      slot.root.position.set(s.x, s.y, s.z);
+      slot.root.rotation.y = s.ry;
+      applySlotPose(slot, s, true);
+    } else if (s.activeMesh && s.activeIndex >= 0) {
+      s.activeMesh.setMatrixAt(s.activeIndex, s.matrix);
+      farNeedsUpdate = true;
+    }
+  }
+  if (farNeedsUpdate && farMesh) farMesh.instanceMatrix.needsUpdate = true;
   if (!pool.length) return;
   reassignTimer -= dt;
   const movedSq = (x - lastX) * (x - lastX) + (z - lastZ) * (z - lastZ);
-  if (reassignTimer <= 0 || movedSq > 100) {
+  if (reassignTimer <= 0 || movedSq > MOVE_REASSIGN_SQ) {
     reassignTimer = REASSIGN_INTERVAL;
     lastX = x;
     lastZ = z;
-    reassignPool(x, z);
+    reassignPool(spawns, farMesh, pool, x, z);
   }
-  for (let i = 0; i < pool.length; i++) if (pool[i].spawnIndex !== -1) pool[i].mixer.update(dt);
+  for (let i = 0; i < pool.length; i++) {
+    if (pool[i].spawnIndex !== -1) pool[i].mixer.update(dt);
+  }
 }
