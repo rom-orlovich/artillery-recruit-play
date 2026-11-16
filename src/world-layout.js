@@ -12,7 +12,7 @@ export const MAP_DEFS = {
     landmarks: [{ x: -58, z: -176, text: 'ש"ג 978' }, { x: -95, z: -176, text: 'רחבת היערכות' }, { x: -146, z: -198, text: 'ימ"ח' }, { x: -76, z: -158, text: 'גן אלון' }]
   },
   line: {
-    id: 'line', nameHe: 'קו סוללה — הר קרן', titleHe: 'קו הסוללה — הר קרן', subHe: 'עמדות ירי ומוצב צוקית',
+    id: 'line', nameHe: 'כדיתא — קו הסוללה', titleHe: 'קו הסוללה — כדיתא', subHe: 'עמדות ירי ומוצב צוקית',
     bounds: [-210, 210, -450, -195], spawn: { x: -57, z: -244, yaw: -0.55 }, batteryCenter: { x: 58, z: -300 }, mapColor: '#8f7f52',
     guns: [
       { id: 'A1', x: -44, z: -296, yaw: 0 }, { id: 'A2', x: -6, z: -290, yaw: 0 }, { id: 'A3', x: 32, z: -298, yaw: 0 },
