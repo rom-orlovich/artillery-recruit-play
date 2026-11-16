@@ -77,11 +77,11 @@ vec3 evalSky() {
   float h = d.y;
   float sd = max(dot(d, normalize(sunDir)), 0.0);
   vec2 flatSun = normalize(sunDir.xz + 1e-4);
-  float toward = pow(max(dot(normalize(d.xz + 1e-4), flatSun), 0.0), 1.6);
+  float toward = pow(max(dot(d.xz / max(length(d.xz), 1e-4), flatSun), 0.0), 1.6);
   vec3 horizonCol = mix(horizonAway, horizon, toward);
   vec3 col = mix(horizonCol, zenith, pow(clamp(h, 0.0, 1.0), 0.6));
   col = mix(col, horizon * 1.08 + sunColor * 0.12, pow(sd, 3.0) * (1.0 - clamp(h * 2.5, 0.0, 1.0)) * 0.6);
-  col = mix(col, groundCol, smoothstep(0.0, -0.06, h));
+  col = mix(col, groundCol, (1.0 - smoothstep(-0.06, 0.0, h)));
   vec2 cp = d.xz / (max(h, 0.0) + 0.11) * 0.9;
   float c = fbm(cp * 1.7);
   float cover = smoothstep(1.0 - clouds, 1.0 - clouds + 0.32, c) * smoothstep(0.0, 0.07, h);
@@ -92,7 +92,7 @@ vec3 evalSky() {
   col = mix(col, cloudCol, cover * 0.88);
   vec3 up = normalize(cross(cross(normalize(sunDir), vec3(0.0, 1.0, 0.0)), normalize(sunDir)));
   vec3 right = normalize(cross(normalize(sunDir), up));
-  float ang = atan(dot(d, right), dot(d, up));
+  float ang = atan(dot(d, right), dot(d, up) + 1e-5);
   float streak = smoothstep(0.45, 0.95, noise(vec2(ang * 9.0, 0.5))) * pow(sd, 5.0) * step(0.0, h);
   col += sunColor * streak * rays * 0.55 * (1.0 - cover * 0.6);
   col += sunColor * (pow(sd, 10.0) * 0.45 + pow(sd, 90.0) * 0.9) * mix(1.0, 0.35, stars);
@@ -101,7 +101,7 @@ vec3 evalSky() {
   vec3 cell = floor(sp);
   vec3 f = fract(sp) - 0.5;
   float s = hash3(cell);
-  float star = smoothstep(0.42, 0.06, length(f)) * step(0.984, s);
+  float star = (1.0 - smoothstep(0.06, 0.42, length(f))) * step(0.984, s);
   float mag = fract(s * 173.3);
   float starMask = smoothstep(0.05, 0.22, h) * (1.0 - cover * 0.85) * stars;
   col += mix(vec3(0.82, 0.88, 1.0), vec3(1.0, 0.95, 0.86), mag) * star * (0.45 + 0.75 * mag) * starMask;
