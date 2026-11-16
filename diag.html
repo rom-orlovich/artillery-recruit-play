@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>בדיקת גרפיקה</title>
+  <style>
+    body { margin: 0; background: #222; color: #fff; font: 18px sans-serif; }
+    canvas { width: 100vw; height: 45vh; display: block; }
+    pre { white-space: pre-wrap; direction: ltr; text-align: left; padding: 8px; font-size: 15px; }
+    .labels { display: flex; justify-content: space-around; direction: ltr; font-size: 14px; }
+  </style>
+  <script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.170.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.170.0/examples/jsm/"}}</script>
+</head>
+<body>
+  <canvas id="view"></canvas>
+  <div class="labels"><span>A sky-env</span><span>B room-env</span><span>C no-env</span><span>D lambert</span></div>
+  <pre id="report">טוען…</pre>
+  <script type="module">
+    import * as THREE from 'three';
+    import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+    import { createEnvManager } from './src/world-sky-env.js';
+    const report = document.getElementById('report');
+    const lines = [];
+    const log = (text) => { lines.push(text); report.textContent = lines.join('\n'); };
+    window.addEventListener('error', (event) => log('ERROR ' + event.message));
+    const canvas = document.getElementById('view');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, preserveDrawingBuffer: true });
+    renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
+    const gl = renderer.getContext();
+    const info = gl.getExtension('WEBGL_debug_renderer_info');
+    log('GPU: ' + (info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : 'unknown'));
+    log('float RT: ' + Boolean(gl.getExtension('EXT_color_buffer_float')) + ' half RT: ' + Boolean(gl.getExtension('EXT_color_buffer_half_float')));
+    const camera = new THREE.PerspectiveCamera(30, canvas.clientWidth / canvas.clientHeight, 0.1, 100);
+    camera.position.set(0, 0, 14);
+    const makeScene = () => {
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x87a0c0);
+      scene.add(new THREE.HemisphereLight(0xc8d4e6, 0x6c5c4a, 1.2));
+      const sun = new THREE.DirectionalLight(0xffffff, 2);
+      sun.position.set(3, 5, 4);
+      scene.add(sun);
+      return scene;
+    };
+    const wallMaterial = () => new THREE.MeshStandardMaterial({ color: 0xd8c8a8, roughness: 0.9, metalness: 0 });
+    const columns = [-4.5, -1.5, 1.5, 4.5];
+    const sceneA = makeScene();
+    const envManager = createEnvManager(sceneA, renderer);
+    const skyUniforms = {
+      zenith: { value: new THREE.Color('#5d86b8') }, horizon: { value: new THREE.Color('#d9dde0') },
+      horizonAway: { value: new THREE.Color('#c0ccd8') }, groundCol: { value: new THREE.Color('#8a7a60') },
+      sunColor: { value: new THREE.Color('#fff2dc') }, sunDir: { value: new THREE.Vector3(0.6, 0.5, 0.3).normalize() },
+      clouds: { value: 0.3 }, rays: { value: 0.2 }, stars: { value: 0 }
+    };
+    envManager.syncEnvMap(8, skyUniforms);
+    const sceneB = makeScene();
+    sceneB.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
+    const sceneC = makeScene();
+    const scenes = [sceneA, sceneB, sceneC, makeScene()];
+    scenes.forEach((scene, index) => {
+      const material = index === 3 ? new THREE.MeshLambertMaterial({ color: 0xd8c8a8 }) : wallMaterial();
+      const box = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 2), material);
+      box.position.x = columns[index];
+      box.rotation.set(0.4, 0.6, 0);
+      scene.add(box);
+    });
+    renderer.autoClear = false;
+    renderer.clear();
+    scenes.forEach((scene) => renderer.render(scene, camera));
+    const pixel = new Uint8Array(4);
+    const width = gl.drawingBufferWidth;
+    const height = gl.drawingBufferHeight;
+    ['A', 'B', 'C', 'D'].forEach((name, index) => {
+      const screenX = Math.round(((columns[index] / 14) * (1 / Math.tan(THREE.MathUtils.degToRad(15))) / camera.aspect + 1) * 0.5 * width);
+      gl.readPixels(screenX, Math.round(height / 2), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+      log(name + ': rgb ' + Array.from(pixel.slice(0, 3)).join(','));
+    });
+    log('צלם מסך ושלח');
+  </script>
+</body>
+</html>
