@@ -1,5 +1,5 @@
 import { player, runtime, addScoreAndMoney } from './state.js';
-import { spawnDrone } from './entities.js';
+import { spawnDrone, getDrones, destroyDrone } from './entities.js';
 import { getCurrentMapId, getTerrainHeight } from './world.js';
 import { getSkyPhase } from './world-time.js';
 import { showRadio, showToast } from './hud.js';
@@ -86,9 +86,9 @@ export function initBatteryEvents(appContext) {
   crisisCooldown = CRISIS_INTERVAL_SEC;
   runtime.illumBoost = 0;
   runtime.illumTimer = 0;
-  if (typeof runtime.mafikOnline !== 'boolean') runtime.mafikOnline = true;
+  runtime.mafikOnline = true;
   if (typeof runtime.moraleBuffSec !== 'number') runtime.moraleBuffSec = 0;
-  eventsState.mafikOnline = runtime.mafikOnline;
+  eventsState.mafikOnline = true;
   eventsState.moraleBuffSec = runtime.moraleBuffSec;
 }
 
@@ -200,7 +200,22 @@ export function updateBatteryEvents(dt, appContext) {
   const hasSentry = scanCrewState(dt, eventsState.activeCrisis, handleNpcGeneratorFix);
   if (eventsState.activeCrisis) {
     eventsState.crisisTimer = Math.max(0, eventsState.crisisTimer - dt);
-    if (eventsState.crisisTimer <= 0) eventsState.activeCrisis = null;
+    if (eventsState.crisisTimer <= 0) {
+      const expired = eventsState.activeCrisis;
+      eventsState.activeCrisis = null;
+      if (expired === 'event_night_illum') {
+        const drones = getDrones();
+        for (let i = drones.length - 1; i >= 0; i -= 1) {
+          if (drones[i]?.enemyType === 'infiltrator') {
+            destroyDrone(drones[i]);
+          }
+        }
+      } else if (expired === 'event_generator_out') {
+        runtime.mafikOnline = true;
+        eventsState.mafikOnline = true;
+        setScenePointLightsDimmed(sceneRef, false);
+      }
+    }
   } else if (runtime.isPlaying) {
     crisisCooldown -= dt;
     if (crisisCooldown <= 0) {
