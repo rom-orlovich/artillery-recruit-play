@@ -5,6 +5,7 @@ import { getCurrentMapId } from './world.js';
 import { getMissionMapId } from './missions.js';
 import { MAP_DEFS } from './world-layout.js';
 import { getMapLabels } from './map-image.js';
+import { getRoutineTarget } from './daily-routine.js';
 
 const RANGE_AREA = { x: 72, z: 0 };
 const RESERVE_MAPS = new Set(['zaura', 'beit_hillel', 'kadita']);
@@ -212,6 +213,9 @@ export function getCurrentTarget() {
   if (lastObservedMapId && lastObservedMapId !== currentMap) traveledMapId = currentMap;
   lastObservedMapId = currentMap;
   if (currentMap !== 'shivta') traveledMapId = currentMap;
+
+  const routineTarget = getRoutineTarget();
+  if (routineTarget) return routineTarget;
 
   const t = carryTarget() || m1Target() || campaignTarget();
   if (t) {

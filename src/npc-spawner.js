@@ -81,6 +81,7 @@ export function spawnNpcsForMap(mapId, roster, scene, npcs, byId) {
       name, rank, role, region: mapId,
       crewOf: s.crewOf ?? null,
       isOfficer: Boolean(off),
+      officerId: off?.officerId ?? null,
       linesByChapter: offDef?.linesByChapter || null,
       pos: { x: s.x, y: s.y, z: s.z },
       home: { x: s.x, y: s.y, z: s.z, ry: s.ry },

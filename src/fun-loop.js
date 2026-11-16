@@ -14,6 +14,8 @@ import {
   interactStation
 } from './battery-events.js';
 import { initShiftHud, updateShiftHud } from './battery-shift.js';
+import { updateDailyRoutine } from './daily-routine.js';
+import { initPlayerLevel } from './player-level.js';
 
 const MAX_FRAME_DT = 0.25;
 const DEFAULT_HERO_AMMO = 8;
@@ -36,6 +38,7 @@ export function initFunLoop(appContext) {
   contextRef = appContext || null;
   lastMapId = getCurrentMapId();
   ensureRuntimeDefaults();
+  initPlayerLevel();
   initFireMissionLoop(contextRef);
   initBatteryEvents(contextRef);
   initShiftHud();
@@ -59,6 +62,7 @@ export function updateFunLoop(dt) {
     return;
   }
   const safeDt = Math.min(dt, MAX_FRAME_DT);
+  updateDailyRoutine(safeDt);
   updateFireMissionLoop(safeDt);
   updateBatteryEvents(safeDt, contextRef);
   updateShiftHud(getFireMissionState(), getBatteryEventsState());

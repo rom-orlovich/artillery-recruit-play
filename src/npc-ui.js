@@ -4,12 +4,16 @@ import { TASK_KEYS, TASKS, getDialogueChoices, getDialogueLine, isOrderable } fr
 import { getNpcs, issueNpcOrder, setTalkTarget } from './npc.js';
 import { initNpcHud, renderTaskBadges, updateNpcHud } from './npc-hud-ui.js';
 import { applyTrustDelta, getTrustGreetingPrefix } from './battery-events.js';
+import { getNextRoutineTask, setCommanderRoutineTarget } from './daily-routine.js';
 
 const MAP_PICKER_SPAN_M = 40;
 const TRUST_DEFAULT = 50;
 const TRUST_DELTA_SUPPORTIVE = 12;
 const TRUST_DELTA_STRICT = -5;
 const TRUST_DELTA_NEUTRAL = 4;
+const COMMANDER_OFFICER_ID = 'outpost_cmd';
+const ROUTINE_CHOICE_LABEL = 'מה המשימה להיום?';
+const ROUTINE_DONE_ANSWER = 'סיימת את כל השגרה להיום. כל הכבוד!';
 
 let uiReady = false;
 let panelEl = null;
@@ -132,6 +136,15 @@ export function openDialogue(npc, chapterId = 1) {
   lineEl.textContent = prefix ? `${prefix}${prefix.endsWith(' ') ? '' : ' '}${baseLine}` : baseLine;
 
   currentChoices = getDialogueChoices(npc, chapterId);
+  if (npc.officerId === COMMANDER_OFFICER_ID) {
+    currentChoices = currentChoices.slice();
+    currentChoices.push({
+      label: ROUTINE_CHOICE_LABEL,
+      tone: 'neutral',
+      isRoutineQuery: true,
+      answer: ''
+    });
+  }
   choicesEl.innerHTML = '';
   for (let i = 0; i < currentChoices.length; i++) {
     const ch = currentChoices[i];
@@ -158,7 +171,18 @@ export function selectChoice(index) {
   const i = Math.max(0, Math.min(currentChoices.length - 1, index | 0));
   const choice = currentChoices[i];
   if (!choice) return;
-  lineEl.textContent = choice.answer;
+  if (choice.isRoutineQuery) {
+    const nextTask = getNextRoutineTask();
+    if (nextTask) {
+      setCommanderRoutineTarget(nextTask.id);
+      lineEl.textContent = `היום: ${nextTask.title} — גש ל${nextTask.stationHint}`;
+    } else {
+      setCommanderRoutineTarget(null);
+      lineEl.textContent = ROUTINE_DONE_ANSWER;
+    }
+  } else {
+    lineEl.textContent = choice.answer;
+  }
   const delta = choice.tone === 'supportive' ? TRUST_DELTA_SUPPORTIVE : (choice.tone === 'strict' ? TRUST_DELTA_STRICT : TRUST_DELTA_NEUTRAL);
   applyTrustDelta(activeNpc, delta);
   activeNpc.trust = Math.max(0, Math.min(100, activeNpc.trust ?? TRUST_DEFAULT));

@@ -2,6 +2,7 @@ import { LANDMARKS, MISSIONS, EVENTS, getMissionsForRole } from './config.js';
 import { save, player, runtime, addScoreAndMoney, advanceDay, writeSave, emit, on } from './state.js';
 import { getCurrentMapId } from './world.js';
 import { getGunDrillInteraction, performGunDrillStep } from './fire-drill.js';
+import { getRoutineInteraction, performRoutineStep } from './daily-routine.js';
 
 const VALID_MAPS = new Set(['shivta', 'yoav', 'line', 'zaura', 'beit_hillel', 'kadita']);
 let listenersBound = false;
@@ -150,11 +151,15 @@ export function findNearbyInteraction(entitiesApi) {
   if (!player.carryingType) {
     const drill = getGunDrillInteraction(player.pos);
     if (drill) candidates.push(drill);
+    const routine = getRoutineInteraction(player.pos);
+    if (routine) candidates.push(routine);
   }
   if (!candidates.length) return null;
   candidates.sort((a, b) => a.dist - b.dist);
-  const { type, label, shortLabel, target } = candidates[0];
-  return shortLabel ? { type, label, shortLabel, target } : { type, label, target };
+  const { type, label, shortLabel, target, taskId } = candidates[0];
+  const result = shortLabel ? { type, label, shortLabel, target } : { type, label, target };
+  if (taskId) result.taskId = taskId;
+  return result;
 }
 
 export function handleInteract(entitiesApi, shopApi, combatApi) {
@@ -221,6 +226,7 @@ export function handleInteract(entitiesApi, shopApi, combatApi) {
       } else emit(EVENTS.TOAST, { message: `כוילו ${runtime.radarCalibrated}/3 אנטנות מכ"ם.`, duration: 2400 });
       writeSave(); break;
     case 'gun_drill': performGunDrillStep(); return true;
+    case 'routine': performRoutineStep(nearby.taskId); return true;
   }
 }
 

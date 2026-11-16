@@ -268,3 +268,16 @@
 }
 
 #dialogue-box .btn-secondary { min-width: 44px; min-height: 44px; }
+
+.badge-level {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  background: rgba(255, 204, 77, 0.18);
+  color: #ffd56b;
+  border: 1px solid rgba(255, 204, 77, 0.45);
+  white-space: nowrap;
+}

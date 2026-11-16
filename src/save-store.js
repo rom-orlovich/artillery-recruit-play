@@ -89,6 +89,8 @@ export function cloneDefault() {
   const initialRank = RANKS.find((r) => r.id === base.rankId) || RANKS[0];
   const obj = {
     ...base,
+    xp: typeof base.xp === 'number' ? base.xp : 0,
+    routine: base.routine && typeof base.routine === 'object' ? base.routine : { day: base.day || 1, done: {} },
     rank: initialRank.name,
     chapterId: CAMPAIGN_SAVE_DEFAULTS.chapterId,
     activeMissionId: CAMPAIGN_SAVE_DEFAULTS.activeMissionId,
@@ -180,6 +182,13 @@ export function migrateSaveData(rawSave) {
   const migrated = {
     ...base,
     ...rawSave,
+    xp: typeof rawSave.xp === 'number' && Number.isFinite(rawSave.xp) && rawSave.xp >= 0 ? rawSave.xp : base.xp,
+    routine: rawSave.routine && typeof rawSave.routine === 'object'
+      ? {
+          day: typeof rawSave.routine.day === 'number' ? rawSave.routine.day : (typeof rawSave.day === 'number' ? rawSave.day : base.day || 1),
+          done: rawSave.routine.done && typeof rawSave.routine.done === 'object' && !Array.isArray(rawSave.routine.done) ? { ...rawSave.routine.done } : {}
+        }
+      : { day: typeof rawSave.day === 'number' ? rawSave.day : base.day || 1, done: {} },
     rankId: matchedRank && !rawSave.rankId ? matchedRank.id : rankId,
     rank: rankName,
     chapterId: rawSave.chapterId || base.chapterId,
