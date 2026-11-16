@@ -53,10 +53,6 @@ export function initShiftHud() {
   el.id = HUD_ID;
   el.dir = 'rtl';
   el.style.cssText = [
-    'position:fixed',
-    'top:52px',
-    'right:10px',
-    'z-index:25',
     'pointer-events:none',
     'display:flex',
     'flex-direction:column',
@@ -74,7 +70,8 @@ export function initShiftHud() {
   hudStatusEl = document.createElement('div');
   el.appendChild(hudReadinessEl);
   el.appendChild(hudStatusEl);
-  document.body.appendChild(el);
+  const host = document.getElementById('hud-top-right-stack') || document.body;
+  host.appendChild(el);
   hudEl = el;
 }
 

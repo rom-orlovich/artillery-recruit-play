@@ -121,10 +121,21 @@ body:has(.overlay-modal:not(.hidden)) #guide-offer {
 
 @media (max-height: 420px), (max-width: 900px) {
   #btn-help {
-    top: 6px;
-    left: 90px;
+    top: var(--safe-top);
+    left: calc(var(--safe-left) + 84px);
     padding: 0 10px;
     font-size: 13px;
+  }
+
+  body:has(#pause-modal:not(.hidden)) #btn-help {
+    left: 8px;
+  }
+}
+
+@media (max-height: 380px) {
+  #btn-help {
+    top: 6px;
+    left: 90px;
   }
 
   body:has(#pause-modal:not(.hidden)) #btn-help {
