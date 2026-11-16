@@ -73,7 +73,7 @@ export function buildBeitHillel(mapGroup) {
   for (let i = 0; i < 6; i++) tWalls.push({ x: 26 + i * 3.0, z: 58, yaw: 0 });
   tWalls.push({ x: -49, z: 4, yaw: 1.57 }, { x: -49, z: 1, yaw: 1.57 });
   addTWalls(mapGroup, getTerrainHeight, tWalls, mats);
-  addPerimeterSign(mapGroup, getTerrainHeight, -22, 48, -0.2, 'מחנה בית הלל\nסוללה ג׳', mats);
+  addPerimeterSign(mapGroup, getTerrainHeight, -22, 48, -0.2, 'מחנה בית הלל\nסוללה א׳', mats);
   addBasaltBoulders(mapGroup, getTerrainHeight, 2041, 130, [-116, 112, -108, 96], [0x8e8576, 0x6f675b, 0x5e584e], isBlockedProp);
   addEucalyptusWindbreak(mapGroup, getTerrainHeight, [
     { x1: -84, z1: -86, x2: -80, z2: 72, count: 16 },

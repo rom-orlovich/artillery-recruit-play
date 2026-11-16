@@ -131,7 +131,7 @@ function addSignCairn(bake) {
   }
   const ry = -0.62;
   for (const side of [-1, 1]) bake.box('paint', 0.06, 1.9, 0.06, cx + Math.cos(ry) * side * 0.85, y + 0.95, cz - Math.sin(ry) * side * 0.85, ry, 0x6e3b23, 0, side * 0.03);
-  addSign(bake, 'רחוב האפרסק\nסוללה ג׳ — 409', cx, y + 1.25, cz, ry, 1.9, 0.62, { painted: true, colors: ['#f2c935', '#3f7fe0'], thickness: 0.05 });
+  addSign(bake, 'רחוב האפרסק\nסוללה א׳ — 409', cx, y + 1.25, cz, ry, 1.9, 0.62, { painted: true, colors: ['#f2c935', '#3f7fe0'], thickness: 0.05 });
   bake.box('paint', 1.95, 0.66, 0.06, cx, y + 1.25, cz, ry, 0x4a3727);
   addCollider(REGION, cx, cz, 2.6, 1.6, 1.6);
 }
